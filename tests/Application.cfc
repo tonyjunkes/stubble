@@ -5,12 +5,13 @@
  */
 component {
 
-	this.name              = "A TestBox Runner Suite";
+	this.name = "A TestBox Runner Suite";
 	// any other application.cfc stuff goes below:
 	this.sessionManagement = true;
 
 	// any mappings go here, we create one that points to the root called test.
 	this.mappings[ "/tests" ] = getDirectoryFromPath( getCurrentTemplatePath() );
+	this.mappings[ "/models" ] = expandPath( "/tests/../models" );
 
 	// request start
 	public boolean function onRequestStart( String targetPage ){

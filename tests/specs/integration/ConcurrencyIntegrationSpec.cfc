@@ -4,15 +4,18 @@
 component extends="testbox.system.BaseSpec" {
 	function run( testResults, testBox ){
 		describe( "Stubble Integration", function(){
+			beforeEach( function(){
+				variables.stubble = createObject( "component", "models.Stubble" );
+			} );
+
 			it( "handles concurrent renders on a shared instance and respects cache limits", function(){
-				var stubble      = createObject( "component", "Stubble" );
 				var threadNames  = [];
 				var totalThreads = 20;
 				var iterations   = 5;
 				var maxEntries   = 7;
 
-				stubble.clearCache();
-				stubble.configureCache( enabled = true, maxEntries = maxEntries );
+				variables.stubble.clearCache();
+				variables.stubble.configureCache( enabled = true, maxEntries = maxEntries );
 
 				for ( var i = 1; i <= totalThreads; i++ ) {
 					var threadName = "stubbleRender_" & i & "_" & getTickCount();
@@ -21,7 +24,7 @@ component extends="testbox.system.BaseSpec" {
 					thread
 						action      = "run"
 						name        = threadName
-						stubble     = stubble
+						stubble     = variables.stubble
 						threadIndex = i
 						iterations  = iterations {
 						thread.hadError = false;
@@ -55,14 +58,13 @@ component extends="testbox.system.BaseSpec" {
 					expect( cfthread[ thisThreadName ].result ).toBe( expected );
 				}
 
-				var stats = stubble.getCacheStats();
+				var stats = variables.stubble.getCacheStats();
 				expect( stats.enabled ).toBeTrue();
 				expect( stats.maxEntries ).toBe( maxEntries );
 				expect( stats.currentEntries ).toBeLTE( maxEntries );
 			} );
 
 			it( "remains stable when cache is toggled during concurrent renders", function(){
-				var stubble            = createObject( "component", "Stubble" );
 				var renderThreadNames  = [];
 				var toggleThreadNames  = [];
 				var renderThreads      = 12;
@@ -70,8 +72,8 @@ component extends="testbox.system.BaseSpec" {
 				var toggleThreads      = 3;
 				var toggleIterations   = 20;
 
-				stubble.clearCache();
-				stubble.configureCache( enabled = true, maxEntries = 6 );
+				variables.stubble.clearCache();
+				variables.stubble.configureCache( enabled = true, maxEntries = 6 );
 
 				for ( var i = 1; i <= renderThreads; i++ ) {
 					var renderThreadName = "stubbleRenderToggle_" & i & "_" & getTickCount();
@@ -110,7 +112,7 @@ component extends="testbox.system.BaseSpec" {
 					thread
 						action        = "run"
 						name          = toggleThreadName
-						stubble       = stubble
+						stubble       = variables.stubble
 						iterations    = toggleIterations
 						threadOrdinal = i {
 						thread.hadError = false;
@@ -148,9 +150,9 @@ component extends="testbox.system.BaseSpec" {
 					expect( cfthread[ thisToggleThreadName ].result ).toBe( "ok" );
 				}
 
-				stubble.configureCache( enabled = true, maxEntries = 4 );
+				variables.stubble.configureCache( enabled = true, maxEntries = 4 );
 
-				var stats = stubble.getCacheStats();
+				var stats = variables.stubble.getCacheStats();
 				expect( stats.enabled ).toBeTrue();
 				expect( stats.maxEntries ).toBe( 4 );
 				expect( stats.currentEntries ).toBeLTE( stats.maxEntries );

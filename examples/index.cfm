@@ -1,11 +1,11 @@
 <cfscript>
-stubble = new Stubble();
+stubble = new models.Stubble();
 
 function printCase(required string title, required string template, required any data, struct partials = {}) {
 	output = stubble.render(arguments.template, arguments.data, arguments.partials);
-	writeOutput("<h3>" & htmlEditFormat(arguments.title) & "</h3>");
-	writeOutput("<b>Template</b><pre>" & htmlEditFormat(arguments.template) & "</pre>");
-	writeOutput("<b>Output</b><pre>" & htmlEditFormat(output) & "</pre>");
+	writeOutput("<h3>" & arguments.title & "</h3>");
+	writeOutput("<b>Template</b><pre>" & arguments.template & "</pre>");
+	writeOutput("<b>Output</b><pre>" & output & "</pre>");
 }
 
 writeOutput("<h1>Stubble Demo</h1>");
@@ -93,5 +93,5 @@ printCase(
 
 stats = stubble.getCacheStats();
 writeOutput("<h3>Cache Stats</h3>");
-writeOutput("<pre>" & htmlEditFormat(serializeJSON(stats)) & "</pre>");
+writeOutput("<pre>" & serializeJSON(stats) & "</pre>");
 </cfscript>

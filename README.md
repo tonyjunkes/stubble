@@ -1,6 +1,6 @@
 # Stubble
 
-Stubble is a lightweight, Mustache-inspired template engine for CFML.
+Stubble is a minimal, Mustache-inspired template engine for CFML.
 
 ## What It Is
 
@@ -96,7 +96,7 @@ writeOutput( result );
 
 ## Running Tests With TestBox
 
-The test suite lives under `tests/specs/` and uses TestBox (`testbox/` is vendored in this repo).
+The test suite lives under `tests/specs/` and uses TestBox and can be executed from the CLI via CommandBox or browser.
 
 ### 1. Install Dependencies
 
@@ -112,8 +112,12 @@ box server start
 
 By default, `server.json` sets the server to Lucee on port `8520`.
 
-### 3. Run Tests in Browser
+### 3. Run Tests
 
-Open:
+```bash
+box testbox run
+```
+
+Browser:
 
 - `http://127.0.0.1:8520/tests/runner.cfm`

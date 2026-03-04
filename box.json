@@ -1,8 +1,48 @@
 {
+    "name":"stubble",
+    "version":"0.1.0",
+    "author":"Tony Junkes",
+    "homepage":"https://github.com/tonyjunkes/stubble",
+    "documentation":"https://github.com/tonyjunkes/stubble",
+    "scripts":{
+        "bx-modules:install":"install bx-compat-cfml@be"
+    },
+    "repository":{
+        "type":"git",
+        "URL":"https://github.com/tonyjunkes/stubble"
+    },
+    "bugs":"https://github.com/tonyjunkes/stubble/issues",
+    "slug":"stubble",
+    "shortDescription":"A minimal, Mustache-inspired template engine for CFML",
+    "type":"modules",
+    "keywords":[
+        "template",
+        "mustache"
+    ],
+    "private":false,
+    "projectURL":"https://github.com/tonyjunkes/stubble",
+    "license":[
+        {
+            "type":"MIT",
+            "URL":"https://github.com/tonyjunkes/stubble/LICENSE"
+        }
+    ],
+    "dependencies":{},
     "devDependencies":{
         "testbox":"^6.5.0+18"
     },
     "installPaths":{
         "testbox":"testbox/"
+    },
+    "ignore":[
+        "**/.*",
+        "test",
+        "tests",
+        "docs/**/*.*",
+        "server.json"
+    ],
+    "testbox":{
+        "runner":"http://localhost:8520/tests/runner.cfm",
+        "verbose":false
     }
 }
