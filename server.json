@@ -1,0 +1,11 @@
+{
+    "name":"Stubble",
+    "app":{
+        "cfengine":"lucee"
+    },
+    "web":{
+        "http":{
+            "port":8520
+        }
+    }
+}

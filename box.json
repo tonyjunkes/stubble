@@ -1,0 +1,8 @@
+{
+    "devDependencies":{
+        "testbox":"^6.5.0+18"
+    },
+    "installPaths":{
+        "testbox":"testbox/"
+    }
+}
