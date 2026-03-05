@@ -26,7 +26,8 @@ component extends="testbox.system.BaseSpec" {
 						name        = threadName
 						stubble     = variables.stubble
 						threadIndex = i
-						iterations  = iterations {
+						iterations  = iterations
+					{
 						thread.hadError = false;
 						thread.result   = "";
 
@@ -80,11 +81,12 @@ component extends="testbox.system.BaseSpec" {
 					arrayAppend( renderThreadNames, renderThreadName );
 
 					thread
-						action      = "run"
-						name        = renderThreadName
-						stubble     = stubble
-						threadIndex = i
-						iterations  = renderIterations {
+						action          = "run"
+						name            = renderThreadName
+						stubble         = stubble
+						threadIndex     = i
+						iterations      = renderIterations
+					{
 						thread.hadError = false;
 						thread.result   = "";
 
@@ -114,7 +116,8 @@ component extends="testbox.system.BaseSpec" {
 						name          = toggleThreadName
 						stubble       = variables.stubble
 						iterations    = toggleIterations
-						threadOrdinal = i {
+						threadOrdinal = i
+					{
 						thread.hadError = false;
 						thread.result   = "";
 

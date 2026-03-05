@@ -264,7 +264,7 @@ component displayname="Stubble" singleton {
 
 					var renderedValue = _toString(value);
 					if (node.type == "variable") {
-						arrayAppend(outputChunks, _escapeHtml(renderedValue));
+						arrayAppend(outputChunks, encodeForHTML(renderedValue));
 					} else {
 						arrayAppend(outputChunks, renderedValue);
 					}
@@ -574,11 +574,7 @@ component displayname="Stubble" singleton {
 		variables._cacheOrder = arraySlice(variables._cacheOrder, overflow + 1, orderLen - overflow);
 	}
 
-	private boolean function _isTruthy(any value) {
-		if (isNull(arguments.value)) {
-			return false;
-		}
-
+	private boolean function _isTruthy(any value = false) {
 		if (isBoolean(arguments.value)) {
 			return arguments.value;
 		}
@@ -598,26 +594,12 @@ component displayname="Stubble" singleton {
 		return true;
 	}
 
-	private string function _escapeHtml(required string input) {
-		var out = arguments.input;
-		out = replace(out, "&", "&amp;", "all");
-		out = replace(out, "<", "&lt;", "all");
-		out = replace(out, ">", "&gt;", "all");
-		out = replace(out, '"', "&quot;", "all");
-		out = replace(out, "'", "&##39;", "all");
-		return out;
-	}
-
 	private string function _toString(any value) {
-		if (isNull(arguments.value)) {
-			return "";
-		}
-
-		if (isSimpleValue(arguments.value)) {
-			return arguments.value & "";
-		}
-
 		try {
+			if (isNull(arguments.value)) {
+				return "";
+			}
+
 			return arguments.value & "";
 		} catch (any e) {
 			return serializeJSON(arguments.value);

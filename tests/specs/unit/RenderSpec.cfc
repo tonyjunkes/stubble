@@ -14,7 +14,7 @@ component extends="testbox.system.BaseSpec" {
 					{ html: "<b>x</b>" }
 				);
 
-				expect( output ).toBe( "&lt;b&gt;x&lt;/b&gt;|<b>x</b>|<b>x</b>" );
+				expect( output ).toBe( "&lt;b&gt;x&lt;&##x2f;b&gt;|<b>x</b>|<b>x</b>" );
 			} );
 
 			it( "escapes ampersands, angle brackets, quotes, and apostrophes", function(){
@@ -24,7 +24,7 @@ component extends="testbox.system.BaseSpec" {
 					{ html: raw }
 				);
 
-				expect( output ).toBe( "&amp;&lt;&gt;&quot;&##39;" );
+				expect( output ).toBe( "&amp;&lt;&gt;&quot;&##x27;" );
 			} );
 
 			it( "renders dotted paths and numeric array indexes", function(){
