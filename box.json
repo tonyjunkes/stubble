@@ -5,7 +5,7 @@
     "homepage":"https://github.com/tonyjunkes/stubble",
     "documentation":"https://github.com/tonyjunkes/stubble",
     "scripts":{
-        "bx-modules:install":"install bx-compat-cfml@be"
+        "bx-modules:install":"install bx-compat-cfml@be,bx-esapi"
     },
     "repository":{
         "type":"git",
@@ -13,7 +13,7 @@
     },
     "bugs":"https://github.com/tonyjunkes/stubble/issues",
     "slug":"stubble",
-    "shortDescription":"A minimal, Mustache-inspired template engine for CFML",
+    "shortDescription":"A Mustache-inspired template engine for CFML",
     "type":"modules",
     "keywords":[
         "template",
