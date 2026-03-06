@@ -1,6 +1,6 @@
 .vscode
 .idea
 
-.engine
-testbox
+.engine/
+testbox/
 tests/results
