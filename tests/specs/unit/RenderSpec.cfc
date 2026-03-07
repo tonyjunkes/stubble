@@ -53,6 +53,17 @@ component extends="testbox.system.BaseSpec" {
 				expect( output ).toBe( "Ada|Architect|" );
 			} );
 
+			it( "rethrows object accessor errors instead of treating them as missing values", function(){
+				var socket = createObject( "java", "java.net.Socket" ).init();
+
+				expect( function(){
+					variables.stubble.render(
+						"{{socket.inputStream}}",
+						{ socket: socket }
+					);
+				} ).toThrow( type = "java.net.SocketException" );
+			} );
+
 			it( "falls back to parent context when a key is missing in the current item", function(){
 				var output = variables.stubble.render(
 					"{{##people}}{{name}}-{{title}};{{/people}}",

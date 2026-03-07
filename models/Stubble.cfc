@@ -1,6 +1,8 @@
 component displayname="Stubble" singleton {
 	variables._templateCache = {};
-	variables._cacheOrder = [];
+	variables._cacheLinks = {};
+	variables._cacheHeadKey = "";
+	variables._cacheTailKey = "";
 	variables._cacheMaxEntries = 200;
 	variables._cacheEnabled = true;
 	variables._cacheLockName = "Stubble.TemplateCache";
@@ -95,6 +97,10 @@ component displayname="Stubble" singleton {
 							token.type = "partial";
 							token.name = body;
 							break;
+						case "<":
+							token.type = "parent_start";
+							token.name = body;
+							break;
 						case "/":
 							token.type = "section_end";
 							token.name = body;
@@ -104,6 +110,10 @@ component displayname="Stubble" singleton {
 							break;
 						case "##":
 							token.type = "section_start";
+							token.name = body;
+							break;
+						case "$":
+							token.type = "block_start";
 							token.name = body;
 							break;
 						case "^":
@@ -332,16 +342,25 @@ component displayname="Stubble" singleton {
 
 				case "section_start":
 				case "inverted_start":
+					case "block_start":
+					case "parent_start":
 					var node = {
-						type: (token.type == "section_start" ? "section" : "inverted"),
+							type: _getContainerNodeType(token.type),
 						name: token.name,
-						nameParts: _buildNameParts(token.name),
-						renderOpenDelimiter: token.openDelimiter,
-						renderCloseDelimiter: token.closeDelimiter,
 						children: [],
+							startPos: token.startPos,
+							openEndPos: token.endPos,
+							endPos: 0,
 						rawStartPos: token.endPos + 1,
 						rawText: ""
 					};
+
+						if (token.type == "section_start" || token.type == "inverted_start") {
+							node.nameParts = _buildNameParts(token.name);
+							node.renderOpenDelimiter = token.openDelimiter;
+							node.renderCloseDelimiter = token.closeDelimiter;
+						}
+
 					arrayAppend(current.children, node);
 					arrayAppend(stack, node);
 					break;
@@ -368,6 +387,7 @@ component displayname="Stubble" singleton {
 					if (rawEndPos >= rawStartPos) {
 						stack[openIndex].rawText = mid(arguments.template, rawStartPos, rawEndPos - rawStartPos + 1);
 					}
+					stack[openIndex].endPos = token.endPos;
 
 					arrayDeleteAt(stack, openIndex);
 					break;
@@ -382,13 +402,15 @@ component displayname="Stubble" singleton {
 			throw(type = "Stubble.Parser", message = "Unclosed section: " & unclosed.name);
 		}
 
+		_finalizeParsedNodes(root.children, arguments.template);
+
 		return root.children;
 	}
 
 	public string function render(required string template, any data = {}, struct partials = {}) {
 		var ast = _getParsedTemplate(arguments.template);
 		var contextStack = [arguments.data];
-		return _renderNodes(ast, contextStack, arguments.partials);
+		return _renderNodes(ast, contextStack, arguments.partials, {});
 	}
 
 	public void function configureCache(boolean enabled = true, numeric maxEntries = 200) {
@@ -397,8 +419,7 @@ component displayname="Stubble" singleton {
 			variables._cacheMaxEntries = max(1, int(arguments.maxEntries));
 
 			if (!variables._cacheEnabled) {
-				variables._templateCache = {};
-				variables._cacheOrder = [];
+				_resetCacheState();
 			} else {
 				_evictCacheIfNeeded();
 			}
@@ -407,8 +428,7 @@ component displayname="Stubble" singleton {
 
 	public void function clearCache() {
 		lock name=variables._cacheLockName type="exclusive" timeout="5" {
-			variables._templateCache = {};
-			variables._cacheOrder = [];
+			_resetCacheState();
 		}
 	}
 
@@ -424,7 +444,19 @@ component displayname="Stubble" singleton {
 		return stats;
 	}
 
-	private string function _renderNodes(required array nodes, required array contextStack, required struct partials) {
+	private void function _resetCacheState() {
+		variables._templateCache = {};
+		variables._cacheLinks = {};
+		variables._cacheHeadKey = "";
+		variables._cacheTailKey = "";
+	}
+
+	private string function _renderNodes(
+		required array nodes,
+		required array contextStack,
+		required struct partials,
+		struct blockOverrides = {}
+	) {
 		var outputChunks = [];
 		var nodeCount = arrayLen(arguments.nodes);
 
@@ -445,7 +477,7 @@ component displayname="Stubble" singleton {
 
 					var value = lookup.value;
 					if (isCustomFunction(value)) {
-						value = _invokeVariableLambda(value, arguments.contextStack, arguments.partials);
+						value = _invokeVariableLambda(value, arguments.contextStack, arguments.partials, arguments.blockOverrides);
 					}
 
 					var renderedValue = _toString(value);
@@ -469,13 +501,21 @@ component displayname="Stubble" singleton {
 							renderedPartialTemplate = _indentPartialTemplate(renderedPartialTemplate, node.indent);
 						}
 
-						arrayAppend(outputChunks, _renderWithStack(renderedPartialTemplate, arguments.contextStack, arguments.partials));
+						arrayAppend(outputChunks, _renderWithStack(renderedPartialTemplate, arguments.contextStack, arguments.partials, "{{", "}}", arguments.blockOverrides));
 					}
+					break;
+
+				case "parent":
+					arrayAppend(outputChunks, _renderParent(node, arguments.contextStack, arguments.partials, arguments.blockOverrides));
+					break;
+
+				case "block":
+					arrayAppend(outputChunks, _renderBlock(node, arguments.contextStack, arguments.partials, arguments.blockOverrides));
 					break;
 
 				case "section":
 				case "inverted":
-					arrayAppend(outputChunks, _renderSection(node, arguments.contextStack, arguments.partials));
+					arrayAppend(outputChunks, _renderSection(node, arguments.contextStack, arguments.partials, arguments.blockOverrides));
 					break;
 
 				default:
@@ -511,14 +551,19 @@ component displayname="Stubble" singleton {
 		};
 	}
 
-	private string function _renderSection(required struct node, required array contextStack, required struct partials) {
+	private string function _renderSection(
+		required struct node,
+		required array contextStack,
+		required struct partials,
+		struct blockOverrides = {}
+	) {
 		var lookup = _lookup(arguments.node.name, arguments.contextStack, arguments.node.nameParts);
 		var found = lookup.found;
 		var value = found ? lookup.value : "";
 		var truthy = found && _isTruthy(value);
 
 		if (arguments.node.type == "inverted") {
-			return truthy ? "" : _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials);
+			return truthy ? "" : _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials, arguments.blockOverrides);
 		}
 
 		if (!found) {
@@ -531,6 +576,7 @@ component displayname="Stubble" singleton {
 				arguments.node.rawText,
 				arguments.contextStack,
 				arguments.partials,
+				arguments.blockOverrides,
 				arguments.node.renderOpenDelimiter,
 				arguments.node.renderCloseDelimiter
 			);
@@ -546,7 +592,7 @@ component displayname="Stubble" singleton {
 			for (var i = 1; i <= valueCount; i++) {
 				arrayAppend(arguments.contextStack, value[i]);
 				try {
-					arrayAppend(arrayOutputChunks, _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials));
+					arrayAppend(arrayOutputChunks, _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials, arguments.blockOverrides));
 				} finally {
 					arrayDeleteAt(arguments.contextStack, arrayLen(arguments.contextStack));
 				}
@@ -557,7 +603,7 @@ component displayname="Stubble" singleton {
 		if (isStruct(value) || isObject(value)) {
 			arrayAppend(arguments.contextStack, value);
 			try {
-				return _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials);
+				return _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials, arguments.blockOverrides);
 			} finally {
 				arrayDeleteAt(arguments.contextStack, arrayLen(arguments.contextStack));
 			}
@@ -569,10 +615,66 @@ component displayname="Stubble" singleton {
 
 		arrayAppend(arguments.contextStack, value);
 		try {
-			return _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials);
+			return _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials, arguments.blockOverrides);
 		} finally {
 			arrayDeleteAt(arguments.contextStack, arrayLen(arguments.contextStack));
 		}
+	}
+
+	private string function _renderParent(
+		required struct node,
+		required array contextStack,
+		required struct partials,
+		struct blockOverrides = {}
+	) {
+		var resolvedParentName = _resolvePartialName(arguments.node.name, arguments.contextStack);
+		if (!resolvedParentName.found || !structKeyExists(arguments.partials, resolvedParentName.name)) {
+			return "";
+		}
+
+		var parentTemplate = arguments.partials[resolvedParentName.name];
+		if (isCustomFunction(parentTemplate)) {
+			parentTemplate = parentTemplate();
+		}
+
+		var effectiveOverrides = _collectBlockOverrides(arguments.node.children);
+		if (structCount(arguments.blockOverrides)) {
+			structAppend(effectiveOverrides, arguments.blockOverrides, true);
+		}
+
+		parentTemplate = _toString(parentTemplate);
+		if (len(arguments.node.expansionIndent)) {
+			parentTemplate = _indentPartialTemplate(parentTemplate, arguments.node.expansionIndent);
+		}
+
+		return _renderWithStack(parentTemplate, arguments.contextStack, arguments.partials, "{{", "}}", effectiveOverrides);
+	}
+
+	private string function _renderBlock(
+		required struct node,
+		required array contextStack,
+		required struct partials,
+		struct blockOverrides = {}
+	) {
+		var sourceNode = structKeyExists(arguments.blockOverrides, arguments.node.name)
+			? arguments.blockOverrides[arguments.node.name]
+			: arguments.node;
+
+		var blockTemplate = _normalizeBlockSourceText(sourceNode.rawText, sourceNode.stripLeadingLineBreak);
+		if (len(sourceNode.definitionIndent)) {
+			blockTemplate = _dedentTemplate(blockTemplate, sourceNode.definitionIndent);
+		}
+
+		if (len(arguments.node.expansionIndent)) {
+			blockTemplate = _indentPartialTemplate(blockTemplate, arguments.node.expansionIndent);
+		}
+
+		var renderedBlock = _renderWithStack(blockTemplate, arguments.contextStack, arguments.partials, "{{", "}}", arguments.blockOverrides);
+		if (len(arguments.node.trailingLineBreak) && len(renderedBlock) && !_endsWithLineBreak(renderedBlock)) {
+			renderedBlock &= arguments.node.trailingLineBreak;
+		}
+
+		return renderedBlock;
 	}
 
 	private struct function _lookup(required string name, required array contextStack, array nameParts = []) {
@@ -670,15 +772,74 @@ component displayname="Stubble" singleton {
 			return defaultResult;
 		}
 
-		try {
-			if (structKeyExists(arguments.current, arguments.key)) {
-				return { found: true, value: arguments.current[arguments.key] };
-			}
-		} catch (any e) {
+		if (
+			!structKeyExists(arguments.current, arguments.key) &&
+			!_hasDynamicObjectAccessor(arguments.current, arguments.key)
+		) {
 			return defaultResult;
 		}
 
+		return { found: true, value: arguments.current[arguments.key] };
+
 		return defaultResult;
+	}
+
+	private boolean function _hasDynamicObjectAccessor(required any current, required string key) {
+		var accessorMethodNames = _buildAccessorMethodNames(arguments.key);
+		var metadata = getMetadata(arguments.current);
+
+		if (isStruct(metadata)) {
+			if (structKeyExists(metadata, "functions") && isArray(metadata.functions)) {
+				for (var fn in metadata.functions) {
+					if (
+						isStruct(fn) &&
+						structKeyExists(fn, "name") &&
+						(
+							compareNoCase(fn.name, accessorMethodNames[1]) == 0 ||
+							compareNoCase(fn.name, accessorMethodNames[2]) == 0
+						)
+					) {
+						var parameters = structKeyExists(fn, "parameters") && isArray(fn.parameters) ? fn.parameters : [];
+						if (arrayLen(parameters) == 0) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+
+		try {
+			var methods = arguments.current.getClass().getMethods();
+			for (var method in methods) {
+				var methodName = method.getName();
+				if (
+					(
+						compareNoCase(methodName, accessorMethodNames[1]) == 0 ||
+						compareNoCase(methodName, accessorMethodNames[2]) == 0
+					) &&
+					method.getParameterCount() == 0
+				) {
+					return true;
+				}
+			}
+
+			arguments.current.getClass().getField(arguments.key);
+			return true;
+		} catch (any e) {
+			return false;
+		}
+
+		return false;
+	}
+
+	private array function _buildAccessorMethodNames(required string key) {
+		var normalizedKey = trim(arguments.key);
+		if (!len(normalizedKey)) {
+			return ["", ""];
+		}
+
+		var accessorSuffix = uCase(left(normalizedKey, 1)) & mid(normalizedKey, 2, len(normalizedKey) - 1);
+		return ["get" & accessorSuffix, "is" & accessorSuffix];
 	}
 
 	private numeric function _getFunctionArity(required function lambdaFn) {
@@ -690,7 +851,12 @@ component displayname="Stubble" singleton {
 		return 0;
 	}
 
-	private string function _invokeVariableLambda(required function lambdaFn, required array contextStack, required struct partials) {
+	private string function _invokeVariableLambda(
+		required function lambdaFn,
+		required array contextStack,
+		required struct partials,
+		struct blockOverrides = {}
+	) {
 		var result = "";
 		var currentContext = arguments.contextStack[arrayLen(arguments.contextStack)];
 		var arity = _getFunctionArity(arguments.lambdaFn);
@@ -706,7 +872,7 @@ component displayname="Stubble" singleton {
 			return rendered;
 		}
 
-		return _renderWithStack(rendered, arguments.contextStack, arguments.partials);
+		return _renderWithStack(rendered, arguments.contextStack, arguments.partials, "{{", "}}", arguments.blockOverrides);
 	}
 
 	private string function _invokeSectionLambda(
@@ -714,11 +880,13 @@ component displayname="Stubble" singleton {
 		required string rawText,
 		required array contextStack,
 		required struct partials,
+		struct blockOverrides = {},
 		required string openDelimiter,
 		required string closeDelimiter
 	) {
 		var sectionContextStack = arguments.contextStack;
 		var sectionPartials = arguments.partials;
+		var sectionBlockOverrides = arguments.blockOverrides;
 		var sectionOpenDelimiter = arguments.openDelimiter;
 		var sectionCloseDelimiter = arguments.closeDelimiter;
 
@@ -728,7 +896,8 @@ component displayname="Stubble" singleton {
 				sectionContextStack,
 				sectionPartials,
 				sectionOpenDelimiter,
-				sectionCloseDelimiter
+				sectionCloseDelimiter,
+				sectionBlockOverrides
 			);
 		};
 
@@ -753,7 +922,8 @@ component displayname="Stubble" singleton {
 			arguments.contextStack,
 			arguments.partials,
 			arguments.openDelimiter,
-			arguments.closeDelimiter
+			arguments.closeDelimiter,
+			arguments.blockOverrides
 		);
 	}
 
@@ -762,10 +932,239 @@ component displayname="Stubble" singleton {
 		required array contextStack,
 		required struct partials,
 		string openDelimiter = "{{",
-		string closeDelimiter = "}}"
+		string closeDelimiter = "}}",
+		struct blockOverrides = {}
 	) {
 		var nestedAst = _getParsedTemplate(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
-		return _renderNodes(nestedAst, arguments.contextStack, arguments.partials);
+		return _renderNodes(nestedAst, arguments.contextStack, arguments.partials, arguments.blockOverrides);
+	}
+
+	private string function _getContainerNodeType(required string tokenType) {
+		switch (arguments.tokenType) {
+			case "section_start":
+				return "section";
+			case "inverted_start":
+				return "inverted";
+			case "block_start":
+				return "block";
+			case "parent_start":
+				return "parent";
+		}
+
+		throw(type = "Stubble.Parser", message = "Unsupported container token type: " & arguments.tokenType);
+	}
+
+	private struct function _collectBlockOverrides(required array nodes) {
+		var overrides = {};
+
+		for (var i = 1; i <= arrayLen(arguments.nodes); i++) {
+			var node = arguments.nodes[i];
+			if (node.type == "block") {
+				overrides[node.name] = node;
+			}
+		}
+
+		return overrides;
+	}
+
+	private void function _finalizeParsedNodes(required array nodes, required string template) {
+		for (var i = 1; i <= arrayLen(arguments.nodes); i++) {
+			var node = arguments.nodes[i];
+
+			if (structKeyExists(node, "children") && isArray(node.children) && arrayLen(node.children)) {
+				_finalizeParsedNodes(node.children, arguments.template);
+			}
+
+			if (!listFindNoCase("block,parent", node.type)) {
+				continue;
+			}
+
+			var nodeContext = _getInheritanceNodeContext(arguments.template, node);
+			node.expansionIndent = nodeContext.expansionIndent;
+			node.stripLeadingLineBreak = node.type == "block" ? nodeContext.stripLeadingLineBreak : false;
+			node.trailingLineBreak = node.type == "block" ? nodeContext.trailingLineBreak : "";
+			var normalizedBlockSource = _normalizeBlockSourceText(node.rawText, nodeContext.stripLeadingLineBreak);
+			node.definitionIndent = node.type == "block" && _containsLineBreak(normalizedBlockSource)
+				? _getCommonLeadingIndentation(normalizedBlockSource)
+				: "";
+
+			if (nodeContext.trimLeadingLength > 0 && i > 1 && arguments.nodes[i - 1].type == "text") {
+				var previousValue = arguments.nodes[i - 1].value;
+				arguments.nodes[i - 1].value = nodeContext.trimLeadingLength >= len(previousValue)
+					? ""
+					: left(previousValue, len(previousValue) - nodeContext.trimLeadingLength);
+			}
+
+			if (nodeContext.trimTrailingLength > 0 && i < arrayLen(arguments.nodes) && arguments.nodes[i + 1].type == "text") {
+				var nextValue = arguments.nodes[i + 1].value;
+				arguments.nodes[i + 1].value = nodeContext.trimTrailingLength >= len(nextValue)
+					? ""
+					: mid(nextValue, nodeContext.trimTrailingLength + 1, len(nextValue) - nodeContext.trimTrailingLength);
+			}
+		}
+	}
+
+	private struct function _getInheritanceNodeContext(required string template, required struct node) {
+		var lineStartPos = _getLineStartPos(arguments.template, arguments.node.startPos);
+		var leadingWhitespace = mid(arguments.template, lineStartPos, arguments.node.startPos - lineStartPos);
+		var hasStandaloneLeading = _containsOnlyStandaloneWhitespace(leadingWhitespace);
+		var hasInlineContent = !_containsLineBreak(arguments.node.rawText) && len(trim(arguments.node.rawText));
+
+		var afterNodePos = arguments.node.endPos + 1;
+		var nextLineBreakPos = _findNextLineBreakPos(arguments.template, afterNodePos);
+		var trailingWhitespace = "";
+		var trailingLength = 0;
+		var trailingLineBreak = "";
+		var hasStandaloneTrailing = false;
+
+		if (nextLineBreakPos == 0) {
+			trailingWhitespace = afterNodePos <= len(arguments.template)
+				? mid(arguments.template, afterNodePos, len(arguments.template) - afterNodePos + 1)
+				: "";
+			hasStandaloneTrailing = _containsOnlyStandaloneWhitespace(trailingWhitespace);
+			trailingLength = len(trailingWhitespace);
+		} else {
+			trailingWhitespace = nextLineBreakPos > afterNodePos
+				? mid(arguments.template, afterNodePos, nextLineBreakPos - afterNodePos)
+				: "";
+			hasStandaloneTrailing = _containsOnlyStandaloneWhitespace(trailingWhitespace);
+			trailingLength = len(trailingWhitespace) + _getLineBreakLength(arguments.template, nextLineBreakPos);
+			trailingLineBreak = mid(arguments.template, nextLineBreakPos, _getLineBreakLength(arguments.template, nextLineBreakPos));
+		}
+
+		var afterOpenPos = arguments.node.openEndPos + 1;
+		var nextOpenLineBreakPos = _findNextLineBreakPos(arguments.template, afterOpenPos);
+		var openRemainder = "";
+		if (nextOpenLineBreakPos > 0) {
+			openRemainder = nextOpenLineBreakPos > afterOpenPos
+				? mid(arguments.template, afterOpenPos, nextOpenLineBreakPos - afterOpenPos)
+				: "";
+		} else if (afterOpenPos <= len(arguments.template)) {
+			openRemainder = mid(arguments.template, afterOpenPos, len(arguments.template) - afterOpenPos + 1);
+		}
+
+		var stripLeadingLineBreak = nextOpenLineBreakPos > 0 && _containsOnlyStandaloneWhitespace(openRemainder);
+		var isStandaloneNode = hasStandaloneLeading && hasStandaloneTrailing && !hasInlineContent;
+		var expansionIndent = isStandaloneNode ? leadingWhitespace : "";
+		if (arguments.node.type == "block" && !len(expansionIndent) && stripLeadingLineBreak) {
+			expansionIndent = _getCommonLeadingIndentation(_normalizeBlockSourceText(arguments.node.rawText, true));
+		}
+
+		return {
+			trimLeadingLength: isStandaloneNode ? len(leadingWhitespace) : 0,
+			trimTrailingLength: isStandaloneNode ? trailingLength : 0,
+			expansionIndent: expansionIndent,
+			stripLeadingLineBreak: stripLeadingLineBreak,
+			trailingLineBreak: isStandaloneNode ? trailingLineBreak : ""
+		};
+	}
+
+	private boolean function _containsLineBreak(required string value) {
+		return find(chr(10), arguments.value) > 0 || find(chr(13), arguments.value) > 0;
+	}
+
+	private boolean function _endsWithLineBreak(required string value) {
+		if (!len(arguments.value)) {
+			return false;
+		}
+
+		return right(arguments.value, 1) == chr(10)
+			|| right(arguments.value, 1) == chr(13)
+			|| right(arguments.value, 2) == chr(13) & chr(10);
+	}
+
+	private string function _normalizeBlockSourceText(required string templateText, boolean stripLeadingLineBreak = false) {
+		var normalizedText = arguments.templateText;
+		if (!arguments.stripLeadingLineBreak || !len(normalizedText)) {
+			return normalizedText;
+		}
+
+		if (left(normalizedText, 2) == chr(13) & chr(10)) {
+			return mid(normalizedText, 3, len(normalizedText) - 2);
+		}
+
+		if (left(normalizedText, 1) == chr(13) || left(normalizedText, 1) == chr(10)) {
+			return mid(normalizedText, 2, len(normalizedText) - 1);
+		}
+
+		return normalizedText;
+	}
+
+	private string function _getCommonLeadingIndentation(required string templateText) {
+		var normalizedText = replace(arguments.templateText, chr(13) & chr(10), chr(10), "all");
+		normalizedText = replace(normalizedText, chr(13), chr(10), "all");
+		var lines = listToArray(normalizedText, chr(10), true);
+		var commonIndent = "";
+		var hasContent = false;
+
+		for (var i = 1; i <= arrayLen(lines); i++) {
+			var line = lines[i];
+			if (!len(trim(line))) {
+				continue;
+			}
+
+			var lineIndentMatch = reFind("^[ \t]*", line, 1, true);
+			var lineIndent = lineIndentMatch.len[1] > 0 ? left(line, lineIndentMatch.len[1]) : "";
+
+			if (!hasContent) {
+				commonIndent = lineIndent;
+				hasContent = true;
+				continue;
+			}
+
+			commonIndent = _getCommonWhitespacePrefix(commonIndent, lineIndent);
+			if (!len(commonIndent)) {
+				break;
+			}
+		}
+
+		return hasContent ? commonIndent : "";
+	}
+
+	private string function _getCommonWhitespacePrefix(required string firstIndent, required string secondIndent) {
+		var maxLength = min(len(arguments.firstIndent), len(arguments.secondIndent));
+		var prefix = "";
+
+		for (var i = 1; i <= maxLength; i++) {
+			if (mid(arguments.firstIndent, i, 1) != mid(arguments.secondIndent, i, 1)) {
+				break;
+			}
+
+			prefix &= mid(arguments.firstIndent, i, 1);
+		}
+
+		return prefix;
+	}
+
+	private string function _dedentTemplate(required string templateText, required string indentation) {
+		if (!len(arguments.templateText) || !len(arguments.indentation)) {
+			return arguments.templateText;
+		}
+
+		var output = "";
+		var pos = 1;
+		var totalLen = len(arguments.templateText);
+
+		while (pos <= totalLen) {
+			var nextLineBreakPos = _findNextLineBreakPos(arguments.templateText, pos);
+			var lineText = nextLineBreakPos == 0
+				? mid(arguments.templateText, pos, totalLen - pos + 1)
+				: mid(arguments.templateText, pos, nextLineBreakPos - pos);
+			var lineBreak = "";
+
+			if (nextLineBreakPos > 0) {
+				lineBreak = mid(arguments.templateText, nextLineBreakPos, _getLineBreakLength(arguments.templateText, nextLineBreakPos));
+			}
+
+			if (len(trim(lineText)) && left(lineText, len(arguments.indentation)) == arguments.indentation) {
+				lineText = mid(lineText, len(arguments.indentation) + 1, len(lineText) - len(arguments.indentation));
+			}
+
+			output &= lineText & lineBreak;
+			pos = nextLineBreakPos == 0 ? totalLen + 1 : nextLineBreakPos + len(lineBreak);
+		}
+
+		return output;
 	}
 
 	private string function _indentPartialTemplate(required string template, required string indentation) {
@@ -856,41 +1255,89 @@ component displayname="Stubble" singleton {
 	}
 
 	private void function _touchCacheKey(required string cacheKey) {
-		var keyIndex = arrayFind(variables._cacheOrder, arguments.cacheKey);
-		var orderLen = arrayLen(variables._cacheOrder);
-
-		if (keyIndex == orderLen && keyIndex > 0) {
+		if (!structKeyExists(variables._templateCache, arguments.cacheKey)) {
 			return;
 		}
 
-		if (keyIndex > 0) {
-			arrayDeleteAt(variables._cacheOrder, keyIndex);
+		if (!structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
+			variables._cacheLinks[arguments.cacheKey] = {
+				prev: variables._cacheTailKey,
+				next: ""
+			};
+
+			if (len(variables._cacheTailKey) && structKeyExists(variables._cacheLinks, variables._cacheTailKey)) {
+				variables._cacheLinks[variables._cacheTailKey].next = arguments.cacheKey;
+			} else {
+				variables._cacheHeadKey = arguments.cacheKey;
+			}
+
+			variables._cacheTailKey = arguments.cacheKey;
+			return;
 		}
 
-		arrayAppend(variables._cacheOrder, arguments.cacheKey);
+		if (variables._cacheTailKey == arguments.cacheKey) {
+			return;
+		}
+
+		var prevKey = variables._cacheLinks[arguments.cacheKey].prev;
+		var nextKey = variables._cacheLinks[arguments.cacheKey].next;
+
+		if (len(prevKey) && structKeyExists(variables._cacheLinks, prevKey)) {
+			variables._cacheLinks[prevKey].next = nextKey;
+		} else {
+			variables._cacheHeadKey = nextKey;
+		}
+
+		if (len(nextKey) && structKeyExists(variables._cacheLinks, nextKey)) {
+			variables._cacheLinks[nextKey].prev = prevKey;
+		}
+
+		variables._cacheLinks[arguments.cacheKey].prev = variables._cacheTailKey;
+		variables._cacheLinks[arguments.cacheKey].next = "";
+
+		if (len(variables._cacheTailKey) && structKeyExists(variables._cacheLinks, variables._cacheTailKey)) {
+			variables._cacheLinks[variables._cacheTailKey].next = arguments.cacheKey;
+		} else {
+			variables._cacheHeadKey = arguments.cacheKey;
+		}
+
+		variables._cacheTailKey = arguments.cacheKey;
+	}
+
+	private void function _removeCacheKey(required string cacheKey) {
+		if (structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
+			var cacheLink = variables._cacheLinks[arguments.cacheKey];
+
+			if (len(cacheLink.prev) && structKeyExists(variables._cacheLinks, cacheLink.prev)) {
+				variables._cacheLinks[cacheLink.prev].next = cacheLink.next;
+			} else {
+				variables._cacheHeadKey = cacheLink.next;
+			}
+
+			if (len(cacheLink.next) && structKeyExists(variables._cacheLinks, cacheLink.next)) {
+				variables._cacheLinks[cacheLink.next].prev = cacheLink.prev;
+			} else {
+				variables._cacheTailKey = cacheLink.prev;
+			}
+
+			structDelete(variables._cacheLinks, arguments.cacheKey);
+		}
+
+		if (structKeyExists(variables._templateCache, arguments.cacheKey)) {
+			structDelete(variables._templateCache, arguments.cacheKey);
+		}
+
+		if (!structCount(variables._templateCache)) {
+			variables._cacheLinks = {};
+			variables._cacheHeadKey = "";
+			variables._cacheTailKey = "";
+		}
 	}
 
 	private void function _evictCacheIfNeeded() {
-		var orderLen = arrayLen(variables._cacheOrder);
-		var overflow = orderLen - variables._cacheMaxEntries;
-
-		if (overflow <= 0) {
-			return;
+		while (structCount(variables._templateCache) > variables._cacheMaxEntries && len(variables._cacheHeadKey)) {
+			_removeCacheKey(variables._cacheHeadKey);
 		}
-
-		for (var i = 1; i <= overflow; i++) {
-			var oldestKey = variables._cacheOrder[i];
-			if (structKeyExists(variables._templateCache, oldestKey)) {
-				structDelete(variables._templateCache, oldestKey);
-			}
-		}
-
-		if (overflow >= orderLen) {
-			variables._cacheOrder = [];
-			return;
-		}
-
-		variables._cacheOrder = arraySlice(variables._cacheOrder, overflow + 1, orderLen - overflow);
 	}
 
 	private boolean function _isTruthy(any value = false) {
