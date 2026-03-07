@@ -1,6 +1,6 @@
 # Stubble
 
-Stubble is a minimal, Mustache-inspired template engine for CFML.
+A Mustache-inspired template engine for CFML.
 
 ## What It Is
 
@@ -49,7 +49,7 @@ writeOutput( output ); // Hello Ada
 
 ## Template Notes
 
-Stubble uses `{{$name}}` for section starts (instead of `{{#name}}`).
+Stubble uses `{{$name}}` for section starts (instead of `{{#name}}`) to avoid conflicts with CFML's `#`.
 
 ```mustache
 {{$people}}
@@ -95,6 +95,8 @@ writeOutput( result );
   - Returns cache metadata: enabled, maxEntries, currentEntries.
 
 ## Running Tests With TestBox
+
+> Test cases cover the [Mustache spec](https://github.com/mustache/spec) as of 3/2026
 
 The test suite lives under `tests/specs/` and uses TestBox and can be executed from the CLI via CommandBox or browser.
 

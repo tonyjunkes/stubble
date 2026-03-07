@@ -5,13 +5,17 @@ component displayname="Stubble" singleton {
 	variables._cacheEnabled = true;
 	variables._cacheLockName = "Stubble.TemplateCache";
 
-	public array function tokenize(required string template) {
+	public array function tokenize(required string template, string openDelimiter = "{{", string closeDelimiter = "}}") {
 		var tokens = [];
 		var pos = 1;
 		var totalLen = len(arguments.template);
+		var currentOpenDelimiter = arguments.openDelimiter;
+		var currentCloseDelimiter = arguments.closeDelimiter;
 
 		while (pos <= totalLen) {
-			var openPos = find("{{", arguments.template, pos);
+			var openDelimiterLength = len(currentOpenDelimiter);
+			var closeDelimiterLength = len(currentCloseDelimiter);
+			var openPos = find(currentOpenDelimiter, arguments.template, pos);
 
 			if (openPos == 0) {
 				if (pos <= totalLen) {
@@ -25,16 +29,21 @@ component displayname="Stubble" singleton {
 				break;
 			}
 
-			if (openPos > pos) {
-				arrayAppend(tokens, {
-					type: "text",
-					value: mid(arguments.template, pos, openPos - pos),
-					startPos: pos,
-					endPos: openPos - 1
-				});
-			}
+			if (
+				currentOpenDelimiter == "{{"
+				&& currentCloseDelimiter == "}}"
+				&& (openPos + 2) <= totalLen
+				&& mid(arguments.template, openPos, 3) == "{{{"
+			) {
+				if (openPos > pos) {
+					arrayAppend(tokens, {
+						type: "text",
+						value: mid(arguments.template, pos, openPos - pos),
+						startPos: pos,
+						endPos: openPos - 1
+					});
+				}
 
-			if ((openPos + 2) <= totalLen && mid(arguments.template, openPos, 3) == "{{{") {
 				var tripleClosePos = find("}}}", arguments.template, openPos + 3);
 				if (tripleClosePos == 0) {
 					throw(type = "Stubble.Tokenizer", message = "Unclosed triple mustache tag.");
@@ -52,62 +61,225 @@ component displayname="Stubble" singleton {
 				continue;
 			}
 
-			var closePos = find("}}", arguments.template, openPos + 2);
+			var closePos = find(currentCloseDelimiter, arguments.template, openPos + openDelimiterLength);
 			if (closePos == 0) {
 				throw(type = "Stubble.Tokenizer", message = "Unclosed tag.");
 			}
 
-			var content = trim(mid(arguments.template, openPos + 2, closePos - (openPos + 2)));
+			var content = trim(mid(arguments.template, openPos + openDelimiterLength, closePos - (openPos + openDelimiterLength)));
 			var token = {
 				type: "variable",
 				name: content,
+				openDelimiter: currentOpenDelimiter,
+				closeDelimiter: currentCloseDelimiter,
 				startPos: openPos,
-				endPos: closePos + 1
+				endPos: closePos + closeDelimiterLength - 1
 			};
 
 			if (len(content) > 0) {
-				var sigil = left(content, 1);
-				var body = trim(mid(content, 2, len(content) - 1));
+				if (_isSetDelimiterTag(content)) {
+					var delimiterPair = _parseDelimiterPair(content);
+					token.type = "set_delimiter";
+					token.openDelimiter = delimiterPair.openDelimiter;
+					token.closeDelimiter = delimiterPair.closeDelimiter;
+				} else {
+					var sigil = left(content, 1);
+					var body = trim(mid(content, 2, len(content) - 1));
 
-				switch (sigil) {
-					case "!":
-						token.type = "comment";
-						token.name = body;
-						break;
-					case ">":
-						token.type = "partial";
-						token.name = body;
-						break;
-					case "/":
-						token.type = "section_end";
-						token.name = body;
-						if (left(token.name, 1) == "$") {
-							token.name = trim(mid(token.name, 2, len(token.name) - 1));
-						}
-						break;
-					case "$":
-						token.type = "section_start";
-						token.name = body;
-						break;
-					case "^":
-						token.type = "inverted_start";
-						token.name = body;
-						break;
-					case "&":
-						token.type = "unescaped";
-						token.name = body;
-						break;
-					default:
-						token.type = "variable";
-						token.name = content;
+					switch (sigil) {
+						case "!":
+							token.type = "comment";
+							token.name = body;
+							break;
+						case ">":
+							token.type = "partial";
+							token.name = body;
+							break;
+						case "/":
+							token.type = "section_end";
+							token.name = body;
+							if (left(token.name, 1) == "$") {
+								token.name = trim(mid(token.name, 2, len(token.name) - 1));
+							}
+							break;
+						case "$":
+							token.type = "section_start";
+							token.name = body;
+							break;
+						case "^":
+							token.type = "inverted_start";
+							token.name = body;
+							break;
+						case "&":
+							token.type = "unescaped";
+							token.name = body;
+							break;
+						default:
+							token.type = "variable";
+							token.name = content;
+					}
 				}
 			}
 
+			if (_isStandaloneTokenType(token.type)) {
+				var standaloneContext = _getStandaloneTagContext(arguments.template, pos, openPos, token.endPos);
+				if (standaloneContext.isStandalone) {
+					if (standaloneContext.leadingTextLength > 0) {
+						arrayAppend(tokens, {
+							type: "text",
+							value: mid(arguments.template, pos, standaloneContext.leadingTextLength),
+							startPos: pos,
+							endPos: pos + standaloneContext.leadingTextLength - 1
+						});
+					}
+
+					if (token.type == "partial") {
+						token.indent = standaloneContext.indentation;
+					}
+
+					arrayAppend(tokens, token);
+					if (token.type == "set_delimiter") {
+						currentOpenDelimiter = token.openDelimiter;
+						currentCloseDelimiter = token.closeDelimiter;
+					}
+					pos = standaloneContext.nextPos;
+					continue;
+				}
+			}
+
+			if (openPos > pos) {
+				arrayAppend(tokens, {
+					type: "text",
+					value: mid(arguments.template, pos, openPos - pos),
+					startPos: pos,
+					endPos: openPos - 1
+				});
+			}
+
 			arrayAppend(tokens, token);
-			pos = closePos + 2;
+			if (token.type == "set_delimiter") {
+				currentOpenDelimiter = token.openDelimiter;
+				currentCloseDelimiter = token.closeDelimiter;
+			}
+			pos = closePos + closeDelimiterLength;
 		}
 
 		return tokens;
+	}
+
+	private boolean function _isStandaloneTokenType(required string tokenType) {
+		return listFindNoCase("comment,partial,section_start,section_end,inverted_start,set_delimiter", arguments.tokenType) > 0;
+	}
+
+	private boolean function _isSetDelimiterTag(required string content) {
+		return len(arguments.content) >= 2 && left(arguments.content, 1) == "=" && right(arguments.content, 1) == "=";
+	}
+
+	private struct function _parseDelimiterPair(required string content) {
+		var delimiterDefinition = trim(mid(arguments.content, 2, len(arguments.content) - 2));
+		var normalizedDefinition = trim(reReplace(delimiterDefinition, "\s+", " ", "all"));
+		var delimiterParts = len(normalizedDefinition) ? listToArray(normalizedDefinition, " ") : [];
+
+		if (arrayLen(delimiterParts) != 2) {
+			throw(type = "Stubble.Tokenizer", message = "Invalid set delimiter tag.");
+		}
+
+		return {
+			openDelimiter: delimiterParts[1],
+			closeDelimiter: delimiterParts[2]
+		};
+	}
+
+	private struct function _getStandaloneTagContext(
+		required string template,
+		required numeric currentPos,
+		required numeric openPos,
+		required numeric tokenEndPos
+	) {
+		var lineStartPos = _getLineStartPos(arguments.template, arguments.openPos);
+		var leadingWhitespace = mid(arguments.template, lineStartPos, arguments.openPos - lineStartPos);
+
+		if (!_containsOnlyStandaloneWhitespace(leadingWhitespace)) {
+			return { isStandalone: false };
+		}
+
+		var afterTokenPos = arguments.tokenEndPos + 1;
+		var nextLineBreakPos = _findNextLineBreakPos(arguments.template, afterTokenPos);
+
+		if (nextLineBreakPos == 0) {
+			var trailingToEnd = afterTokenPos <= len(arguments.template)
+				? mid(arguments.template, afterTokenPos, len(arguments.template) - afterTokenPos + 1)
+				: "";
+
+			if (!_containsOnlyStandaloneWhitespace(trailingToEnd)) {
+				return { isStandalone: false };
+			}
+
+			return {
+				isStandalone: true,
+				leadingTextLength: max(0, lineStartPos - arguments.currentPos),
+				indentation: leadingWhitespace,
+				nextPos: len(arguments.template) + 1
+			};
+		}
+
+		var trailingWhitespace = nextLineBreakPos > afterTokenPos
+			? mid(arguments.template, afterTokenPos, nextLineBreakPos - afterTokenPos)
+			: "";
+
+		if (!_containsOnlyStandaloneWhitespace(trailingWhitespace)) {
+			return { isStandalone: false };
+		}
+
+		return {
+			isStandalone: true,
+			leadingTextLength: max(0, lineStartPos - arguments.currentPos),
+			indentation: leadingWhitespace,
+			nextPos: nextLineBreakPos + _getLineBreakLength(arguments.template, nextLineBreakPos)
+		};
+	}
+
+	private numeric function _getLineStartPos(required string template, required numeric position) {
+		var prefix = arguments.position > 1 ? left(arguments.template, arguments.position - 1) : "";
+		var lastLineFeed = findLast(chr(10), prefix);
+		var lastCarriageReturn = findLast(chr(13), prefix);
+
+		return max(lastLineFeed, lastCarriageReturn) + 1;
+	}
+
+	private numeric function _findNextLineBreakPos(required string template, required numeric startPos) {
+		if (arguments.startPos > len(arguments.template)) {
+			return 0;
+		}
+
+		var nextLineFeed = find(chr(10), arguments.template, arguments.startPos);
+		var nextCarriageReturn = find(chr(13), arguments.template, arguments.startPos);
+
+		if (nextLineFeed == 0) {
+			return nextCarriageReturn;
+		}
+
+		if (nextCarriageReturn == 0) {
+			return nextLineFeed;
+		}
+
+		return min(nextLineFeed, nextCarriageReturn);
+	}
+
+	private numeric function _getLineBreakLength(required string template, required numeric lineBreakPos) {
+		if (
+			mid(arguments.template, arguments.lineBreakPos, 1) == chr(13)
+			&& arguments.lineBreakPos < len(arguments.template)
+			&& mid(arguments.template, arguments.lineBreakPos + 1, 1) == chr(10)
+		) {
+			return 2;
+		}
+
+		return 1;
+	}
+
+	private boolean function _containsOnlyStandaloneWhitespace(required string value) {
+		return len(reReplace(arguments.value, "[ \t]", "", "all")) == 0;
 	}
 
 	public array function parse(required array tokens, required string template) {
@@ -140,7 +312,14 @@ component displayname="Stubble" singleton {
 					break;
 
 				case "partial":
-					arrayAppend(current.children, { type: "partial", name: token.name });
+					arrayAppend(current.children, {
+						type: "partial",
+						name: token.name,
+						indent: structKeyExists(token, "indent") ? token.indent : ""
+					});
+					break;
+
+				case "set_delimiter":
 					break;
 
 				case "comment":
@@ -152,6 +331,8 @@ component displayname="Stubble" singleton {
 						type: (token.type == "section_start" ? "section" : "inverted"),
 						name: token.name,
 						nameParts: _buildNameParts(token.name),
+						renderOpenDelimiter: token.openDelimiter,
+						renderCloseDelimiter: token.closeDelimiter,
 						children: [],
 						rawStartPos: token.endPos + 1,
 						rawText: ""
@@ -264,7 +445,7 @@ component displayname="Stubble" singleton {
 
 					var renderedValue = _toString(value);
 					if (node.type == "variable") {
-						arrayAppend(outputChunks, encodeForHTML(renderedValue));
+						arrayAppend(outputChunks, _escapeHtml(renderedValue));
 					} else {
 						arrayAppend(outputChunks, renderedValue);
 					}
@@ -276,7 +457,13 @@ component displayname="Stubble" singleton {
 						if (isCustomFunction(partialTemplate)) {
 							partialTemplate = partialTemplate();
 						}
-						arrayAppend(outputChunks, _renderWithStack(_toString(partialTemplate), arguments.contextStack, arguments.partials));
+
+						var renderedPartialTemplate = _toString(partialTemplate);
+						if (len(node.indent)) {
+							renderedPartialTemplate = _indentPartialTemplate(renderedPartialTemplate, node.indent);
+						}
+
+						arrayAppend(outputChunks, _renderWithStack(renderedPartialTemplate, arguments.contextStack, arguments.partials));
 					}
 					break;
 
@@ -308,7 +495,14 @@ component displayname="Stubble" singleton {
 		}
 
 		if (isCustomFunction(value)) {
-			return _invokeSectionLambda(value, arguments.node.rawText, arguments.contextStack, arguments.partials);
+			return _invokeSectionLambda(
+				value,
+				arguments.node.rawText,
+				arguments.contextStack,
+				arguments.partials,
+				arguments.node.renderOpenDelimiter,
+				arguments.node.renderCloseDelimiter
+			);
 		}
 
 		if (isArray(value)) {
@@ -338,7 +532,16 @@ component displayname="Stubble" singleton {
 			}
 		}
 
-		return truthy ? _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials) : "";
+		if (!truthy) {
+			return "";
+		}
+
+		arrayAppend(arguments.contextStack, value);
+		try {
+			return _renderNodes(arguments.node.children, arguments.contextStack, arguments.partials);
+		} finally {
+			arrayDeleteAt(arguments.contextStack, arrayLen(arguments.contextStack));
+		}
 	}
 
 	private struct function _lookup(required string name, required array contextStack, array nameParts = []) {
@@ -354,10 +557,28 @@ component displayname="Stubble" singleton {
 			parts = _buildNameParts(arguments.name);
 		}
 
+		if (arrayLen(parts) == 1) {
+			for (var i = arrayLen(arguments.contextStack); i >= 1; i--) {
+				var resolved = _resolvePath(arguments.contextStack[i], parts);
+				if (resolved.found) {
+					return resolved;
+				}
+			}
+
+			return { found: false, value: "" };
+		}
+
+		var firstPart = [parts[1]];
+		var remainingParts = arraySlice(parts, 2, arrayLen(parts) - 1);
+
 		for (var i = arrayLen(arguments.contextStack); i >= 1; i--) {
-			var resolved = _resolvePath(arguments.contextStack[i], parts);
+			var resolved = _resolvePath(arguments.contextStack[i], firstPart);
 			if (resolved.found) {
-				return resolved;
+				if (isNull(resolved.value)) {
+					return { found: false, value: "" };
+				}
+
+				return _resolvePath(resolved.value, remainingParts);
 			}
 		}
 
@@ -461,13 +682,23 @@ component displayname="Stubble" singleton {
 		required function lambdaFn,
 		required string rawText,
 		required array contextStack,
-		required struct partials
+		required struct partials,
+		required string openDelimiter,
+		required string closeDelimiter
 	) {
 		var sectionContextStack = arguments.contextStack;
 		var sectionPartials = arguments.partials;
+		var sectionOpenDelimiter = arguments.openDelimiter;
+		var sectionCloseDelimiter = arguments.closeDelimiter;
 
 		var renderFn = function(required string templateText) {
-			return _renderWithStack(templateText, sectionContextStack, sectionPartials);
+			return _renderWithStack(
+				templateText,
+				sectionContextStack,
+				sectionPartials,
+				sectionOpenDelimiter,
+				sectionCloseDelimiter
+			);
 		};
 
 		var result = "";
@@ -486,20 +717,67 @@ component displayname="Stubble" singleton {
 			return rendered;
 		}
 
-		return _renderWithStack(rendered, arguments.contextStack, arguments.partials);
+		return _renderWithStack(
+			rendered,
+			arguments.contextStack,
+			arguments.partials,
+			arguments.openDelimiter,
+			arguments.closeDelimiter
+		);
 	}
 
-	private string function _renderWithStack(required string template, required array contextStack, required struct partials) {
-		var nestedAst = _getParsedTemplate(arguments.template);
+	private string function _renderWithStack(
+		required string template,
+		required array contextStack,
+		required struct partials,
+		string openDelimiter = "{{",
+		string closeDelimiter = "}}"
+	) {
+		var nestedAst = _getParsedTemplate(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		return _renderNodes(nestedAst, arguments.contextStack, arguments.partials);
 	}
 
-	private array function _getParsedTemplate(required string template) {
-		if (!variables._cacheEnabled) {
-			return parse(tokenize(arguments.template), arguments.template);
+	private string function _indentPartialTemplate(required string template, required string indentation) {
+		if (!len(arguments.template) || !len(arguments.indentation)) {
+			return arguments.template;
 		}
 
-		var cacheKey = _buildCacheKey(arguments.template);
+		var output = arguments.indentation;
+		var pos = 1;
+		var totalLen = len(arguments.template);
+
+		while (pos <= totalLen) {
+			var currentChar = mid(arguments.template, pos, 1);
+			output &= currentChar;
+
+			if (currentChar == chr(13)) {
+				if (pos < totalLen && mid(arguments.template, pos + 1, 1) == chr(10)) {
+					pos++;
+					output &= chr(10);
+				}
+
+				if (pos < totalLen) {
+					output &= arguments.indentation;
+				}
+			} else if (currentChar == chr(10) && pos < totalLen) {
+				output &= arguments.indentation;
+			}
+
+			pos++;
+		}
+
+		return output;
+	}
+
+	private array function _getParsedTemplate(required string template, string openDelimiter = "{{", string closeDelimiter = "}}") {
+		if (!variables._cacheEnabled) {
+			return parse(
+				tokenize(arguments.template, arguments.openDelimiter, arguments.closeDelimiter),
+				arguments.template
+			);
+		}
+
+		var cacheKey = _buildCacheKey(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		var cachedAst = [];
 		var hasCached = false;
 
@@ -519,7 +797,10 @@ component displayname="Stubble" singleton {
 			return cachedAst;
 		}
 
-		var ast = parse(tokenize(arguments.template), arguments.template);
+		var ast = parse(
+			tokenize(arguments.template, arguments.openDelimiter, arguments.closeDelimiter),
+			arguments.template
+		);
 		lock name=variables._cacheLockName type="exclusive" timeout="5" {
 			if (!structKeyExists(variables._templateCache, cacheKey)) {
 				variables._templateCache[cacheKey] = ast;
@@ -532,8 +813,15 @@ component displayname="Stubble" singleton {
 		return ast;
 	}
 
-	private string function _buildCacheKey(required string template) {
-		return len(arguments.template) & ":" & hash(arguments.template, "MD5");
+	private string function _buildCacheKey(
+		required string template,
+		string openDelimiter = "{{",
+		string closeDelimiter = "}}"
+	) {
+		return len(arguments.template) & ":" & hash(
+			arguments.openDelimiter & chr( 0 ) & arguments.closeDelimiter & chr( 0 ) & arguments.template,
+			"MD5"
+		);
 	}
 
 	private void function _touchCacheKey(required string cacheKey) {
@@ -592,6 +880,17 @@ component displayname="Stubble" singleton {
 		}
 
 		return true;
+	}
+
+	private string function _escapeHtml(required string value) {
+		var escaped = replace(arguments.value, "&", "&amp;", "all");
+		escaped = replace(escaped, "<", "&lt;", "all");
+		escaped = replace(escaped, ">", "&gt;", "all");
+		escaped = replace(escaped, chr(34), "&quot;", "all");
+		escaped = replace(escaped, chr(39), "&##x27;", "all");
+		escaped = replace(escaped, "/", "&##x2f;", "all");
+
+		return escaped;
 	}
 
 	private string function _toString(any value) {
