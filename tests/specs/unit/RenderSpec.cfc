@@ -55,7 +55,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "falls back to parent context when a key is missing in the current item", function(){
 				var output = variables.stubble.render(
-					"{{$people}}{{name}}-{{title}};{{/people}}",
+					"{{##people}}{{name}}-{{title}};{{/people}}",
 					{
 						title: "Team",
 						people: [
@@ -70,7 +70,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "uses current context with dot lookups inside array sections", function(){
 				var output = variables.stubble.render(
-					"{{$items}}({{.}}){{/items}}",
+					"{{##items}}({{.}}){{/items}}",
 					{ items: [ "a", "b", "c" ] }
 				);
 
@@ -79,7 +79,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "renders sections for struct contexts", function(){
 				var output = variables.stubble.render(
-					"{{$person}}{{name}}:{{role}}{{/person}}",
+					"{{##person}}{{name}}:{{role}}{{/person}}",
 					{ person: { name: "Ada", role: "Engineer" } }
 				);
 
@@ -88,7 +88,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "honors falsey values and inverted sections", function(){
 				var output = variables.stubble.render(
-					"{{$count}}C{{/count}}|{{$empty}}E{{/empty}}|{{^count}}NC{{/count}}|{{^empty}}NE{{/empty}}",
+					"{{##count}}C{{/count}}|{{##empty}}E{{/empty}}|{{^count}}NC{{/count}}|{{^empty}}NE{{/empty}}",
 					{ count: 0, empty: "" }
 				);
 
@@ -97,7 +97,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "handles empty arrays for sections and inverted sections", function(){
 				var output = variables.stubble.render(
-					"{{$items}}X{{/items}}|{{^items}}Y{{/items}}",
+					"{{##items}}X{{/items}}|{{^items}}Y{{/items}}",
 					{ items: [] }
 				);
 
@@ -157,7 +157,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "supports section lambdas with arity 0, 1, and 2", function(){
 				var output = variables.stubble.render(
-					"{{$zero}}x{{/zero}}|{{$one}}Hi {{name}}{{/one}}|{{$two}}Hi {{name}}{{/two}}",
+					"{{##zero}}x{{/zero}}|{{##one}}Hi {{name}}{{/one}}|{{##two}}Hi {{name}}{{/two}}",
 					{
 						name: "Ada",
 						zero: function(){
@@ -177,7 +177,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "returns empty output for missing variables and sections", function(){
 				var output = variables.stubble.render(
-					"A{{missing}}B{{$unknown}}X{{/unknown}}C",
+					"A{{missing}}B{{##unknown}}X{{/unknown}}C",
 					{}
 				);
 

@@ -23,7 +23,7 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "captures section raw text and nested children", function(){
-				var template = "{{$people}}- {{name}}{{/people}}";
+				var template = "{{##people}}- {{name}}{{/people}}";
 				var ast      = variables.stubble.parse( variables.stubble.tokenize( template ), template );
 
 				expect( ast ).toHaveLength( 1 );
@@ -47,7 +47,7 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "captures empty section bodies as empty raw text", function(){
-				var template = "{{$a}}{{/a}}";
+				var template = "{{##a}}{{/a}}";
 				var ast      = variables.stubble.parse( variables.stubble.tokenize( template ), template );
 
 				expect( ast ).toHaveLength( 1 );
@@ -64,14 +64,14 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "throws when section names mismatch", function(){
-				var template = "{{$a}}x{{/b}}";
+				var template = "{{##a}}x{{/b}}";
 				expect( function(){
 					variables.stubble.parse( variables.stubble.tokenize( template ), template );
 				} ).toThrow( type = "Stubble.Parser" );
 			} );
 
 			it( "throws on unclosed sections", function(){
-				var template = "{{$a}}x";
+				var template = "{{##a}}x";
 				expect( function(){
 					variables.stubble.parse( variables.stubble.tokenize( template ), template );
 				} ).toThrow( type = "Stubble.Parser" );

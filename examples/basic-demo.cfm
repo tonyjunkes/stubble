@@ -21,8 +21,8 @@ printCase(
 );
 
 printCase(
-	title = "$ Sections + Dot Lookup",
-	template = "{{$people}}- {{name}} ({{.role}})#chr(10)##chr(10)#{{/people}}",
+	title = "Mustache Sections + Dot Lookup",
+	template = "{{##people}}- {{name}} ({{.role}})#chr(10)##chr(10)#{{/people}}",
 	data = {
 		people: [
 			{ name: "Moe", role: "Lead" },
@@ -40,7 +40,7 @@ printCase(
 
 printCase(
 	title = "Partials",
-	template = "Users:#chr(10)##chr(10)#{{$users}}{{> userRow}}{{/users}}",
+	template = "Users:#chr(10)##chr(10)#{{##users}}{{> userRow}}{{/users}}",
 	data = {
 		users: [
 			{ name: "Ada", email: "ada@example.com" },
@@ -72,7 +72,7 @@ printCase(
 
 printCase(
 	title = "Lambda Section",
-	template = "{{$wrap}}Hello {{name}}{{/wrap}}",
+	template = "{{##wrap}}Hello {{name}}{{/wrap}}",
 	data = {
 		name: "Stubble",
 		wrap: function(text, renderer) {
@@ -83,7 +83,7 @@ printCase(
 
 printCase(
 	title = "Real Lambda Section",
-	template = "{{$wrap}}Hello {{name}}{{/wrap}}",
+	template = "{{##wrap}}Hello {{name}}{{/wrap}}",
 	data = {
 		name: "Stubble",
 		wrap: (text, renderer) => {

@@ -80,7 +80,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Section: Lambdas used for sections should receive the raw section string.", function(){
 				var output = variables.stubble.render(
-					"<{{$lambda}}{{x}}{{/lambda}}>",
+					"<{{##lambda}}{{x}}{{/lambda}}>",
 					{
 						x: "Error!",
 						lambda: function( text ){
@@ -94,7 +94,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Section - Expansion: Lambdas used for sections should have their results parsed.", function(){
 				var output = variables.stubble.render(
-					"<{{$lambda}}-{{/lambda}}>",
+					"<{{##lambda}}-{{/lambda}}>",
 					{
 						planet: "Earth",
 						lambda: ( text ) => {
@@ -108,7 +108,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Section - Alternate Delimiters: Lambdas used for sections should parse with the current delimiters.", function(){
 				var output = variables.stubble.render(
-					"{{= | | =}}<|$lambda|-|/lambda|>",
+					"{{= | | =}}<|##lambda|-|/lambda|>",
 					{
 						planet: "Earth",
 						lambda: function( text ){
@@ -122,7 +122,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Section - Multiple Calls: Lambdas used for sections should not be cached.", function(){
 				var output = variables.stubble.render(
-					"{{$lambda}}FILE{{/lambda}} != {{$lambda}}LINE{{/lambda}}",
+					"{{##lambda}}FILE{{/lambda}} != {{##lambda}}LINE{{/lambda}}",
 					{
 						lambda: ( text ) => {
 							return "__" & text & "__";

@@ -50,7 +50,7 @@ component extends="testbox.system.BaseSpec" {
 							}
 						]
 					},
-					{ node: "{{content}}<{{$nodes}}{{>node}}{{/nodes}}>" }
+					{ node: "{{content}}<{{##nodes}}{{>node}}{{/nodes}}>" }
 				);
 
 				expect( output ).toBe( "X<Y<>>" );

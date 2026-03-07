@@ -10,7 +10,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Truthy: Truthy sections should have their contents rendered.", function(){
 				var output = variables.stubble.render(
-					'"{{$boolean}}This should be rendered.{{/boolean}}"',
+					'"{{##boolean}}This should be rendered.{{/boolean}}"',
 					{ boolean: true }
 				);
 
@@ -19,7 +19,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Falsey: Falsey sections should have their contents omitted.", function(){
 				var output = variables.stubble.render(
-					'"{{$boolean}}This should not be rendered.{{/boolean}}"',
+					'"{{##boolean}}This should not be rendered.{{/boolean}}"',
 					{ boolean: false }
 				);
 
@@ -28,7 +28,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Null is falsey: Null is falsey.", function(){
 				var output = variables.stubble.render(
-					'"{{$null}}This should not be rendered.{{/null}}"',
+					'"{{##null}}This should not be rendered.{{/null}}"',
 					{ null: javaCast( "null", "" ) }
 				);
 
@@ -37,7 +37,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Context: Objects and hashes should be pushed onto the context stack.", function(){
 				var output = variables.stubble.render(
-					'"{{$context}}Hi {{name}}.{{/context}}"',
+					'"{{##context}}Hi {{name}}.{{/context}}"',
 					{ context: { name: "Joe" } }
 				);
 
@@ -46,7 +46,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Parent contexts: Names missing in the current context are looked up in the stack.", function(){
 				var output = variables.stubble.render(
-					'"{{$sec}}{{a}}, {{b}}, {{c.d}}{{/sec}}"',
+					'"{{##sec}}{{a}}, {{b}}, {{c.d}}{{/sec}}"',
 					{
 						a: "foo",
 						b: "wrong",
@@ -60,7 +60,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Variable test: Non-false sections have their value at the top of context, accessible as {{.}} or through the parent context. This gives a simple way to display content conditionally if a variable exists.", function(){
 				var output = variables.stubble.render(
-					'"{{$foo}}{{.}} is {{foo}}{{/foo}}"',
+					'"{{##foo}}{{.}} is {{foo}}{{/foo}}"',
 					{ foo: "bar" }
 				);
 
@@ -69,7 +69,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "List Contexts: All elements on the context stack should be accessible within lists.", function(){
 				var output = variables.stubble.render(
-					"{{$tops}}{{$middles}}{{tname.lower}}{{mname}}.{{$bottoms}}{{tname.upper}}{{mname}}{{bname}}.{{/bottoms}}{{/middles}}{{/tops}}",
+					"{{##tops}}{{##middles}}{{tname.lower}}{{mname}}.{{##bottoms}}{{tname.upper}}{{mname}}{{bname}}.{{/bottoms}}{{/middles}}{{/tops}}",
 					{
 						tops: [
 							{
@@ -92,15 +92,15 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "Deeply Nested Contexts: All elements on the context stack should be accessible.", function(){
-				var template = "{{$a}}" & chr( 10 ) &
+				var template = "{{##a}}" & chr( 10 ) &
 					"{{one}}" & chr( 10 ) &
-					"{{$b}}" & chr( 10 ) &
+					"{{##b}}" & chr( 10 ) &
 					"{{one}}{{two}}{{one}}" & chr( 10 ) &
-					"{{$c}}" & chr( 10 ) &
+					"{{##c}}" & chr( 10 ) &
 					"{{one}}{{two}}{{three}}{{two}}{{one}}" & chr( 10 ) &
-					"{{$d}}" & chr( 10 ) &
+					"{{##d}}" & chr( 10 ) &
 					"{{one}}{{two}}{{three}}{{four}}{{three}}{{two}}{{one}}" & chr( 10 ) &
-					"{{$five}}" & chr( 10 ) &
+					"{{##five}}" & chr( 10 ) &
 					"{{one}}{{two}}{{three}}{{four}}{{five}}{{four}}{{three}}{{two}}{{one}}" & chr( 10 ) &
 					"{{one}}{{two}}{{three}}{{four}}{{.}}6{{.}}{{four}}{{three}}{{two}}{{one}}" & chr( 10 ) &
 					"{{one}}{{two}}{{three}}{{four}}{{five}}{{four}}{{three}}{{two}}{{one}}" & chr( 10 ) &
@@ -146,7 +146,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "List: Lists should be iterated; list items should visit the context stack.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}{{item}}{{/list}}"',
+					'"{{##list}}{{item}}{{/list}}"',
 					{
 						list: [
 							{ item: 1 },
@@ -161,7 +161,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Empty List: Empty lists should behave like falsey values.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}Yay lists!{{/list}}"',
+					'"{{##list}}Yay lists!{{/list}}"',
 					{ list: [] }
 				);
 
@@ -169,7 +169,7 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "Doubled: Multiple sections per template should be permitted.", function(){
-				var template = "{{$bool}}" & chr( 10 ) & "* first" & chr( 10 ) & "{{/bool}}" & chr( 10 ) & "* {{two}}" & chr( 10 ) & "{{$bool}}" & chr( 10 ) & "* third" & chr( 10 ) & "{{/bool}}" & chr( 10 );
+				var template = "{{##bool}}" & chr( 10 ) & "* first" & chr( 10 ) & "{{/bool}}" & chr( 10 ) & "* {{two}}" & chr( 10 ) & "{{##bool}}" & chr( 10 ) & "* third" & chr( 10 ) & "{{/bool}}" & chr( 10 );
 				var expected = "* first" & chr( 10 ) & "* second" & chr( 10 ) & "* third" & chr( 10 );
 
 				var output = variables.stubble.render(
@@ -182,7 +182,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Nested (Truthy): Nested truthy sections should have their contents rendered.", function(){
 				var output = variables.stubble.render(
-					"| A {{$bool}}B {{$bool}}C{{/bool}} D{{/bool}} E |",
+					"| A {{##bool}}B {{##bool}}C{{/bool}} D{{/bool}} E |",
 					{ bool: true }
 				);
 
@@ -191,7 +191,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Nested (Falsey): Nested falsey sections should be omitted.", function(){
 				var output = variables.stubble.render(
-					"| A {{$bool}}B {{$bool}}C{{/bool}} D{{/bool}} E |",
+					"| A {{##bool}}B {{##bool}}C{{/bool}} D{{/bool}} E |",
 					{ bool: false }
 				);
 
@@ -200,7 +200,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Context Misses: Failed context lookups should be considered falsey.", function(){
 				var output = variables.stubble.render(
-					"[{{$missing}}Found key 'missing'!{{/missing}}]",
+					"[{{##missing}}Found key 'missing'!{{/missing}}]",
 					{}
 				);
 
@@ -209,7 +209,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - String: Implicit iterators should directly interpolate strings.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{.}}){{/list}}"',
+					'"{{##list}}({{.}}){{/list}}"',
 					{ list: [ "a", "b", "c", "d", "e" ] }
 				);
 
@@ -218,7 +218,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Integer: Implicit iterators should cast integers to strings and interpolate.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{.}}){{/list}}"',
+					'"{{##list}}({{.}}){{/list}}"',
 					{ list: [ 1, 2, 3, 4, 5 ] }
 				);
 
@@ -227,7 +227,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Decimal: Implicit iterators should cast decimals to strings and interpolate.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{.}}){{/list}}"',
+					'"{{##list}}({{.}}){{/list}}"',
 					{ list: [ 1.1, 2.2, 3.3, 4.4, 5.5 ] }
 				);
 
@@ -236,7 +236,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Array: Implicit iterators should allow iterating over nested arrays.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{$.}}{{.}}{{/.}}){{/list}}"',
+					'"{{##list}}({{##.}}{{.}}{{/.}}){{/list}}"',
 					{ list: [ [ 1, 2, 3 ], [ "a", "b", "c" ] ] }
 				);
 
@@ -245,7 +245,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - HTML Escaping: Implicit iterators with basic interpolation should be HTML escaped.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{.}}){{/list}}"',
+					'"{{##list}}({{.}}){{/list}}"',
 					{ list: [ "&", '"', "<", ">" ] }
 				);
 
@@ -254,7 +254,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Triple mustache: Implicit iterators in triple mustache should interpolate without HTML escaping.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{{.}}}){{/list}}"',
+					'"{{##list}}({{{.}}}){{/list}}"',
 					{ list: [ "&", '"', "<", ">" ] }
 				);
 
@@ -263,7 +263,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Ampersand: Implicit iterators in an Ampersand tag should interpolate without HTML escaping.", function(){
 				var output = variables.stubble.render(
-					'"{{$list}}({{&.}}){{/list}}"',
+					'"{{##list}}({{&.}}){{/list}}"',
 					{ list: [ "&", '"', "<", ">" ] }
 				);
 
@@ -272,7 +272,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Implicit Iterator - Root-level: Implicit iterators should work on root-level lists.", function(){
 				var output = variables.stubble.render(
-					'"{{$.}}({{value}}){{/.}}"',
+					'"{{##.}}({{value}}){{/.}}"',
 					[
 						{ value: "a" },
 						{ value: "b" }
@@ -284,7 +284,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Truthy: Dotted names should be valid for Section tags.", function(){
 				var output = variables.stubble.render(
-					'"{{$a.b.c}}Here{{/a.b.c}}" == "Here"',
+					'"{{##a.b.c}}Here{{/a.b.c}}" == "Here"',
 					{ a: { b: { c: true } } }
 				);
 
@@ -293,7 +293,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Falsey: Dotted names should be valid for Section tags.", function(){
 				var output = variables.stubble.render(
-					'"{{$a.b.c}}Here{{/a.b.c}}" == ""',
+					'"{{##a.b.c}}Here{{/a.b.c}}" == ""',
 					{ a: { b: { c: false } } }
 				);
 
@@ -302,7 +302,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Broken Chains: Dotted names that cannot be resolved should be considered falsey.", function(){
 				var output = variables.stubble.render(
-					'"{{$a.b.c}}Here{{/a.b.c}}" == ""',
+					'"{{##a.b.c}}Here{{/a.b.c}}" == ""',
 					{ a: {} }
 				);
 
@@ -311,7 +311,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Surrounding Whitespace: Sections should not alter surrounding whitespace.", function(){
 				var output = variables.stubble.render(
-					" | {{$boolean}}" & chr( 9 ) & "|" & chr( 9 ) & "{{/boolean}} | " & chr( 10 ),
+					" | {{##boolean}}" & chr( 9 ) & "|" & chr( 9 ) & "{{/boolean}} | " & chr( 10 ),
 					{ boolean: true }
 				);
 
@@ -320,7 +320,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Internal Whitespace: Sections should not alter internal whitespace.", function(){
 				var output = variables.stubble.render(
-					" | {{$boolean}} {{! Important Whitespace }}" & chr( 10 ) & " {{/boolean}} | " & chr( 10 ),
+					" | {{##boolean}} {{! Important Whitespace }}" & chr( 10 ) & " {{/boolean}} | " & chr( 10 ),
 					{ boolean: true }
 				);
 
@@ -329,7 +329,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Indented Inline Sections: Single-line sections should not alter surrounding whitespace.", function(){
 				var output = variables.stubble.render(
-					" {{$boolean}}YES{{/boolean}}" & chr( 10 ) & " {{$boolean}}GOOD{{/boolean}}" & chr( 10 ),
+					" {{##boolean}}YES{{/boolean}}" & chr( 10 ) & " {{##boolean}}GOOD{{/boolean}}" & chr( 10 ),
 					{ boolean: true }
 				);
 
@@ -338,7 +338,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Standalone Lines: Standalone lines should be removed from the template.", function(){
 				var output = variables.stubble.render(
-					"| This Is" & chr( 10 ) & "{{$boolean}}" & chr( 10 ) & "|" & chr( 10 ) & "{{/boolean}}" & chr( 10 ) & "| A Line" & chr( 10 ),
+					"| This Is" & chr( 10 ) & "{{##boolean}}" & chr( 10 ) & "|" & chr( 10 ) & "{{/boolean}}" & chr( 10 ) & "| A Line" & chr( 10 ),
 					{ boolean: true }
 				);
 
@@ -347,7 +347,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Indented Standalone Lines: Indented standalone lines should be removed from the template.", function(){
 				var output = variables.stubble.render(
-					"| This Is" & chr( 10 ) & "  {{$boolean}}" & chr( 10 ) & "|" & chr( 10 ) & "  {{/boolean}}" & chr( 10 ) & "| A Line" & chr( 10 ),
+					"| This Is" & chr( 10 ) & "  {{##boolean}}" & chr( 10 ) & "|" & chr( 10 ) & "  {{/boolean}}" & chr( 10 ) & "| A Line" & chr( 10 ),
 					{ boolean: true }
 				);
 
@@ -356,7 +356,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Standalone Line Endings: '\r\n' should be considered a newline for standalone tags.", function(){
 				var output = variables.stubble.render(
-					"|" & chr( 13 ) & chr( 10 ) & "{{$boolean}}" & chr( 13 ) & chr( 10 ) & "{{/boolean}}" & chr( 13 ) & chr( 10 ) & "|",
+					"|" & chr( 13 ) & chr( 10 ) & "{{##boolean}}" & chr( 13 ) & chr( 10 ) & "{{/boolean}}" & chr( 13 ) & chr( 10 ) & "|",
 					{ boolean: true }
 				);
 
@@ -365,7 +365,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Standalone Without Previous Line: Standalone tags should not require a newline to precede them.", function(){
 				var output = variables.stubble.render(
-					"  {{$boolean}}" & chr( 10 ) & "##{{/boolean}}" & chr( 10 ) & "/",
+					"  {{##boolean}}" & chr( 10 ) & "##{{/boolean}}" & chr( 10 ) & "/",
 					{ boolean: true }
 				);
 
@@ -374,7 +374,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Standalone Without Newline: Standalone tags should not require a newline to follow them.", function(){
 				var output = variables.stubble.render(
-					"##{{$boolean}}" & chr( 10 ) & "/" & chr( 10 ) & "  {{/boolean}}",
+					"##{{##boolean}}" & chr( 10 ) & "/" & chr( 10 ) & "  {{/boolean}}",
 					{ boolean: true }
 				);
 
@@ -383,7 +383,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Padding: Superfluous in-tag whitespace should be ignored.", function(){
 				var output = variables.stubble.render(
-					"|{{$ boolean }}={{/ boolean }}|",
+					"|{{## boolean }}={{/ boolean }}|",
 					{ boolean: true }
 				);
 

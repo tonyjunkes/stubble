@@ -98,11 +98,11 @@ component displayname="Stubble" singleton {
 						case "/":
 							token.type = "section_end";
 							token.name = body;
-							if (left(token.name, 1) == "$") {
+							if (left(token.name, 1) == chr(35)) {
 								token.name = trim(mid(token.name, 2, len(token.name) - 1));
 							}
 							break;
-						case "$":
+						case "##":
 							token.type = "section_start";
 							token.name = body;
 							break;
@@ -241,10 +241,15 @@ component displayname="Stubble" singleton {
 
 	private numeric function _getLineStartPos(required string template, required numeric position) {
 		var prefix = arguments.position > 1 ? left(arguments.template, arguments.position - 1) : "";
-		var lastLineFeed = findLast(chr(10), prefix);
-		var lastCarriageReturn = findLast(chr(13), prefix);
+		var lastLineFeed = _findLastStringPosition(chr(10), prefix);
+		var lastCarriageReturn = _findLastStringPosition(chr(13), prefix);
 
 		return max(lastLineFeed, lastCarriageReturn) + 1;
+	}
+
+	private numeric function _findLastStringPosition(required string needle, required string haystack) {
+		var pos = arguments.haystack.lastIndexOf(arguments.needle);
+		return pos == -1 ? 0 : pos + 1;
 	}
 
 	private numeric function _findNextLineBreakPos(required string template, required numeric startPos) {
@@ -452,8 +457,9 @@ component displayname="Stubble" singleton {
 					break;
 
 				case "partial":
-					if (structKeyExists(arguments.partials, node.name)) {
-						var partialTemplate = arguments.partials[node.name];
+					var resolvedPartialName = _resolvePartialName(node.name, arguments.contextStack);
+					if (resolvedPartialName.found && structKeyExists(arguments.partials, resolvedPartialName.name)) {
+						var partialTemplate = arguments.partials[resolvedPartialName.name];
 						if (isCustomFunction(partialTemplate)) {
 							partialTemplate = partialTemplate();
 						}
@@ -478,6 +484,31 @@ component displayname="Stubble" singleton {
 		}
 
 		return arrayToList(outputChunks, "");
+	}
+
+	private struct function _resolvePartialName(required string partialName, required array contextStack) {
+		var trimmedPartialName = trim(arguments.partialName);
+		if (!(len(trimmedPartialName) > 0 && left(trimmedPartialName, 1) == "*")) {
+			return {
+				found: len(trimmedPartialName) > 0,
+				name: trimmedPartialName
+			};
+		}
+
+		var dynamicName = trim(mid(trimmedPartialName, 2, len(trimmedPartialName) - 1));
+		if (!len(dynamicName)) {
+			return { found: false, name: "" };
+		}
+
+		var lookup = _lookup(dynamicName, arguments.contextStack, _buildNameParts(dynamicName));
+		if (!lookup.found || isNull(lookup.value)) {
+			return { found: false, name: "" };
+		}
+
+		return {
+			found: true,
+			name: _toString(lookup.value)
+		};
 	}
 
 	private string function _renderSection(required struct node, required array contextStack, required struct partials) {

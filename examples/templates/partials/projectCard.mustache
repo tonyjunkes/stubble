@@ -16,7 +16,7 @@
     <section>
       <h5>Milestones</h5>
       <ul>
-        {{$milestones}}
+        {{#milestones}}
         <li>
           <strong>{{name}}</strong>
           <span>{{targetDate}}</span>
@@ -32,12 +32,12 @@
     <section>
       <h5>Services</h5>
       <ul>
-        {{$services}}
+        {{#services}}
         <li>
           <strong>{{name}}</strong>
           <span>({{tier}})</span>
           <ul>
-            {{$endpointLabels}}
+            {{#endpointLabels}}
             <li><code>{{value}}</code></li>
             {{/endpointLabels}}
           </ul>
@@ -52,7 +52,7 @@
     <section>
       <h5>Risk Flags</h5>
       <ul>
-        {{$riskFlags}}
+        {{#riskFlags}}
         <li>{{.}}</li>
         {{/riskFlags}}
         {{^riskFlags}}

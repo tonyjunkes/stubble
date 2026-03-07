@@ -28,13 +28,13 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Sections: Delimiters set outside sections should persist.", function(){
 				var template = "[" & chr( 10 ) &
-					"{{$section}}" & chr( 10 ) &
+					"{{##section}}" & chr( 10 ) &
 					"  {{data}}" & chr( 10 ) &
 					"  |data|" & chr( 10 ) &
 					"{{/section}}" & chr( 10 ) &
 					chr( 10 ) &
 					"{{= | | =}}" & chr( 10 ) &
-					"|$section|" & chr( 10 ) &
+					"|##section|" & chr( 10 ) &
 					"  {{data}}" & chr( 10 ) &
 					"  |data|" & chr( 10 ) &
 					"|/section|" & chr( 10 ) &

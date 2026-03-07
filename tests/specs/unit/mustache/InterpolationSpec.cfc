@@ -175,7 +175,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Basic Interpolation: Dotted names should be considered a form of shorthand for sections.", function(){
 				var output = variables.stubble.render(
-					'"{{person.name}}" == "{{$person}}{{name}}{{/person}}"',
+					'"{{person.name}}" == "{{##person}}{{name}}{{/person}}"',
 					{ person: { name: 'Joe' } }
 				);
 
@@ -184,7 +184,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Triple Mustache Interpolation: Dotted names should be considered a form of shorthand for sections.", function(){
 				var output = variables.stubble.render(
-					'"{{{person.name}}}" == "{{$person}}{{{name}}}{{/person}}"',
+					'"{{{person.name}}}" == "{{##person}}{{{name}}}{{/person}}"',
 					{ person: { name: 'Joe' } }
 				);
 
@@ -193,7 +193,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Ampersand Interpolation: Dotted names should be considered a form of shorthand for sections.", function(){
 				var output = variables.stubble.render(
-					'"{{&person.name}}" == "{{$person}}{{&name}}{{/person}}"',
+					'"{{&person.name}}" == "{{##person}}{{&name}}{{/person}}"',
 					{ person: { name: 'Joe' } }
 				);
 
@@ -248,7 +248,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Initial Resolution: The first part of a dotted name should resolve as any other name.", function(){
 				var output = variables.stubble.render(
-					'"{{$a}}{{b.c.d.e.name}}{{/a}}" == "Phil"',
+					'"{{##a}}{{b.c.d.e.name}}{{/a}}" == "Phil"',
 					{
 						a: {
 							b: {
@@ -278,7 +278,7 @@ component extends="testbox.system.BaseSpec" {
 
 			it( "Dotted Names - Context Precedence: Dotted names should be resolved against former resolutions.", function(){
 				var output = variables.stubble.render(
-					'{{$a}}{{b.c}}{{/a}}',
+					'{{##a}}{{b.c}}{{/a}}',
 					{
 						a: {
 							b: {}
