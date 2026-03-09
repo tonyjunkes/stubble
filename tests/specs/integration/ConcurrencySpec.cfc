@@ -33,7 +33,7 @@ component extends="testbox.system.BaseSpec" {
 
 						try {
 							for ( var j = 1; j <= attributes.iterations; j++ ) {
-								var template = "T" & attributes.threadIndex & "-" & j & ":{{name}}-{{$arr}}{{.}}{{/arr}}";
+								var template = "T" & attributes.threadIndex & "-" & j & ":{{name}}-{{##arr}}{{.}}{{/arr}}";
 								thread.result = attributes.stubble.render(
 									template,
 									{
@@ -93,7 +93,7 @@ component extends="testbox.system.BaseSpec" {
 						try {
 							for ( var j = 1; j <= attributes.iterations; j++ ) {
 								thread.result = attributes.stubble.render(
-									"{{$items}}{{name}}:{{.}};{{/items}}",
+									"{{##items}}{{name}}:{{.}};{{/items}}",
 									{
 										name  : "N" & attributes.threadIndex,
 										items : [ 1, 2, 3 ]

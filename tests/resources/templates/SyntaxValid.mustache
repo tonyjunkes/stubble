@@ -1,1 +1,1 @@
-Hello {{name}} {{$items}}{{.}}{{/items}}{{^items}}none{{/items}} {{> itemPartial}}
+Hello {{name}} {{#items}}{{.}}{{/items}}{{^items}}none{{/items}} {{> itemPartial}}

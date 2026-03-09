@@ -1,6 +1,6 @@
 # Stubble
 
-Stubble is a minimal, Mustache-inspired template engine for CFML.
+A Mustache-inspired template engine for CFML.
 
 ## What It Is
 
@@ -34,7 +34,7 @@ writeOutput( output ); // Hello Ada
 - Unescaped variables: `{{{html}}}` and `{{& html}}`
 - Comments: `{{! comment }}`
 - Partials: `{{> partialName}}`
-- Sections: `{{$items}} ... {{/items}}`
+- Sections: `{{#items}} ... {{/items}}`
 - Inverted sections: `{{^items}} ... {{/items}}`
 - Dotted path lookup: `{{user.name}}`
 - Numeric array index lookup: `{{users.2.name}}`
@@ -49,15 +49,19 @@ writeOutput( output ); // Hello Ada
 
 ## Template Notes
 
-Stubble uses `{{$name}}` for section starts (instead of `{{#name}}`).
+Stubble now uses native Mustache `{{#name}}` section starts.
+
+When writing templates inside `.cfc` or `.cfm` string literals, escape the section sigil as `##` so CFML emits a literal `#`.
 
 ```mustache
-{{$people}}
+{{#people}}
 - {{name}}
 {{/people}}
 ```
 
-It also accepts shorthand section closing with `{{/$name}}`.
+```cfml
+template = "Users:\n{{##users}}- {{name}} <{{email}}>\n{{/users}}";
+```
 
 ## Quick Usage
 
@@ -65,7 +69,7 @@ It also accepts shorthand section closing with `{{/$name}}`.
 <cfscript>
 stubble = new Stubble();
 
-template = "Users:\n{{$users}}- {{name}} <{{email}}>\n{{/users}}";
+template = "Users:\n{{##users}}- {{name}} <{{email}}>\n{{/users}}";
 
 data = {
     users: [
@@ -95,6 +99,8 @@ writeOutput( result );
   - Returns cache metadata: enabled, maxEntries, currentEntries.
 
 ## Running Tests With TestBox
+
+> Test cases cover the [Mustache spec](https://github.com/mustache/spec) as of 3/2026
 
 The test suite lives under `tests/specs/` and uses TestBox and can be executed from the CLI via CommandBox or browser.
 

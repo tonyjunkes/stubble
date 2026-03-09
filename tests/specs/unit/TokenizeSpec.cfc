@@ -19,7 +19,7 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "tokenizes comments, partials, sections, and inverted tags", function(){
-				var template = "{{! note}}{{> row}}{{$items}}A{{/items}}{{^empty}}B{{/empty}}";
+				var template = "{{! note}}{{> row}}{{##items}}A{{/items}}{{^empty}}B{{/empty}}";
 				var tokens   = variables.stubble.tokenize( template );
 
 				expect( tokens ).toHaveLength( 8 );
@@ -35,7 +35,7 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "supports closing tags with /$name shorthand", function(){
-				var tokens = variables.stubble.tokenize( "{{$items}}X{{/$items}}" );
+				var tokens = variables.stubble.tokenize( "{{##items}}X{{/##items}}" );
 
 				expect( tokens ).toHaveLength( 3 );
 				expect( tokens[ 1 ].type ).toBe( "section_start" );

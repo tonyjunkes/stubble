@@ -1,0 +1,47 @@
+<section class="release-report">
+	<header>
+		<h2>{{report.title}}</h2>
+		<p><strong>Generated:</strong> <time>{{report.generatedAt}}</time></p>
+		<p><strong>Team:</strong> {{team.name}} ({{team.timezone}})</p>
+	</header>
+
+	<section>
+		<h3>Leads</h3>
+		<ul>
+			{{#team.leads}}
+			<li>
+				<strong>{{name}}</strong>
+				<span>({{role}})</span>
+				<a href="mailto:{{email}}">{{email}}</a>
+			</li>
+			{{/team.leads}}
+		</ul>
+	</section>
+
+	<section>
+		<h3>Projects</h3>
+		<ul>
+			{{#projects}}
+			{{> projectCard}}
+			{{/projects}}
+			{{^projects}}
+			<li>No projects in this release.</li>
+			{{/projects}}
+		</ul>
+	</section>
+
+	<section>
+		<h3>Unassigned Bugs</h3>
+		<ul>
+			{{#unassignedBugs}}
+			<li>
+				<strong>{{id}}</strong>: {{summary}}
+				<em>({{severity}})</em>
+			</li>
+			{{/unassignedBugs}}
+			{{^unassignedBugs}}
+			<li>none</li>
+			{{/unassignedBugs}}
+		</ul>
+	</section>
+</section>

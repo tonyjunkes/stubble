@@ -1,0 +1,64 @@
+<li>
+  <article>
+    <header>
+      <h4>[{{code}}] {{name}}</h4>
+      <p><strong>Status:</strong> {{status}}</p>
+      <p>
+        <strong>Owner:</strong> {{owner.name}}
+        <a href="mailto:{{owner.email}}">{{owner.email}}</a>
+      </p>
+    </header>
+
+    <p><strong>Summary:</strong> {{summary}}</p>
+    <p><strong>Escaped notes:</strong> {{notesHtml}}</p>
+    <div><strong>Raw notes:</strong> {{{notesHtml}}}</div>
+
+    <section>
+      <h5>Milestones</h5>
+      <ul>
+        {{#milestones}}
+        <li>
+          <strong>{{name}}</strong>
+          <span>{{targetDate}}</span>
+          <em>{{state}}</em>
+        </li>
+        {{/milestones}}
+        {{^milestones}}
+        <li>none</li>
+        {{/milestones}}
+      </ul>
+    </section>
+
+    <section>
+      <h5>Services</h5>
+      <ul>
+        {{#services}}
+        <li>
+          <strong>{{name}}</strong>
+          <span>({{tier}})</span>
+          <ul>
+            {{#endpointLabels}}
+            <li><code>{{value}}</code></li>
+            {{/endpointLabels}}
+          </ul>
+        </li>
+        {{/services}}
+        {{^services}}
+        <li>none</li>
+        {{/services}}
+      </ul>
+    </section>
+
+    <section>
+      <h5>Risk Flags</h5>
+      <ul>
+        {{#riskFlags}}
+        <li>{{.}}</li>
+        {{/riskFlags}}
+        {{^riskFlags}}
+        <li>none</li>
+        {{/riskFlags}}
+      </ul>
+    </section>
+  </article>
+</li>

@@ -37,6 +37,24 @@ component extends="testbox.system.BaseSpec" {
 				expect( secondStats.currentEntries ).toBe( 1 );
 			} );
 
+			it( "retains recently reused templates when evicting entries", function(){
+				var instrumentedStubble = createObject( "component", "tests.resources.InstrumentedStubble" );
+				instrumentedStubble.clearCache();
+				instrumentedStubble.configureCache( enabled = true, maxEntries = 2 );
+
+				instrumentedStubble.render( "One {{name}}", { name: "Ada" } );
+				instrumentedStubble.render( "Two {{name}}", { name: "Ada" } );
+				instrumentedStubble.render( "One {{name}}", { name: "Ada" } );
+				instrumentedStubble.render( "Three {{name}}", { name: "Ada" } );
+
+				expect( instrumentedStubble.getParseCallCount() ).toBe( 3 );
+
+				instrumentedStubble.render( "One {{name}}", { name: "Ada" } );
+				instrumentedStubble.render( "Two {{name}}", { name: "Ada" } );
+
+				expect( instrumentedStubble.getParseCallCount() ).toBe( 4 );
+			} );
+
 			it( "can disable cache and avoid storing parsed templates", function(){
 				variables.stubble.render( "A {{name}}", { name: "Ada" } );
 				variables.stubble.configureCache( enabled = false );
