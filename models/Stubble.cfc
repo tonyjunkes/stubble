@@ -780,8 +780,6 @@ component displayname="Stubble" singleton {
 		}
 
 		return { found: true, value: arguments.current[arguments.key] };
-
-		return defaultResult;
 	}
 
 	private boolean function _hasDynamicObjectAccessor(required any current, required string key) {

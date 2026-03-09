@@ -65,7 +65,7 @@ component extends="testbox.system.BaseSpec" {
 						"{{action.getCoolThing}}",
 						{ action: mockObject }
 					);
-				} ).toThrow( type = "Stubble.MockError", message = "MockError!" );
+				} ).toThrow( type = "Stubble.MockError", message = "Mock Error!" );
 			} );
 
 			it( "falls back to parent context when a key is missing in the current item", function(){

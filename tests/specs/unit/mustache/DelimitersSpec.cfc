@@ -86,7 +86,7 @@ component extends="testbox.system.BaseSpec" {
 				expect( output ).toBe( expected );
 			} );
 
-			it( "Partial Inheritence: Delimiters set in a parent template should not affect a partial.", function(){
+			it( "Partial Inheritance: Delimiters set in a parent template should not affect a partial.", function(){
 				var template = "[ {{>include}} ]" & chr( 10 ) & "{{= | | =}}" & chr( 10 ) & "[ |>include| ]" & chr( 10 );
 				var output = variables.stubble.render(
 					template,
