@@ -301,7 +301,7 @@ component extends="testbox.system.BaseSpec" {
 				expect( output ).toBe( '' );
 			} );
 
-			it( "Dotted Names - No Masking: Dotted Names in a given context are unvavailable due to dot splitting", function(){
+			it( "Dotted Names - No Masking: Dotted Names in a given context are unavailable due to dot splitting", function(){
 				var output = variables.stubble.render(
 					'{{a.b}}',
 					{

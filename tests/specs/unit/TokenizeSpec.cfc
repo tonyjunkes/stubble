@@ -34,7 +34,7 @@ component extends="testbox.system.BaseSpec" {
 				expect( tokens[ 6 ].name ).toBe( "empty" );
 			} );
 
-			it( "supports closing tags with /$name shorthand", function(){
+			it( "supports closing tags with /##name shorthand", function(){
 				var tokens = variables.stubble.tokenize( "{{##items}}X{{/##items}}" );
 
 				expect( tokens ).toHaveLength( 3 );
