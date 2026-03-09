@@ -54,14 +54,18 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "rethrows object accessor errors instead of treating them as missing values", function(){
-				var socket = createObject( "java", "java.net.Socket" ).init();
+				var mockObject = {
+					getCoolThing: () => {
+						throw( type = "Stubble.MockError", message = "Mock Error!" );
+					}
+				};
 
 				expect( function(){
 					variables.stubble.render(
-						"{{socket.inputStream}}",
-						{ socket: socket }
+						"{{action.getCoolThing}}",
+						{ action: mockObject }
 					);
-				} ).toThrow( type = "java.net.SocketException" );
+				} ).toThrow( type = "Stubble.MockError", message = "MockError!" );
 			} );
 
 			it( "falls back to parent context when a key is missing in the current item", function(){
