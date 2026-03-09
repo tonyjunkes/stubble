@@ -62,7 +62,7 @@ Treat spec compatibility as a primary concern when changing parsing or rendering
 - The workflow starts CommandBox servers from the relevant `server-*.json` file and executes `box testbox run` across the engine matrix.
 - Keep local validation aligned with the same server configs and commands when practical.
 
-## Documentaion & Resources
+## Documentation & Resources
 
 ### Mustache
 

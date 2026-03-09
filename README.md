@@ -1,6 +1,6 @@
 # Stubble
 
-Stubble is a Mustache-inspired, template engine for CFML. It tokenizes templates, parses them into an AST, renders against CFML data. When enabled, it also caches parsed templates in a thread-safe LRU cache.
+Stubble is a Mustache-inspired template engine for CFML. It tokenizes templates, parses them into an AST, renders against CFML data. When enabled, it also caches parsed templates in a thread-safe LRU cache.
 
 ## Why?
 
@@ -19,7 +19,7 @@ The real experiment here is that a vast majority of this project is built using 
 - Works with inline templates, `.mustache` files, nested partials, and advanced Mustache features.
 - Includes cache controls and concurrency coverage for shared-instance rendering.
 
-The test suite covers the core Mustache areas shipped in `tests/resources/mustache-specs/`, including interpolation, sections, inverted sections, comments, partials, alternate delimiters, lambdas, dynamic names, and inheritance.
+The test suite covers the core Mustache areas found in `tests/specs/unit/mustache/`, including interpolation, sections, inverted sections, comments, partials, alternate delimiters, lambdas, dynamic names, and inheritance.
 
 > Older CFML engines are still likely to work, providing they support the syntax/functions leveraged, but this project aims to focus targeting supported runtimes.
 
