@@ -1,12 +1,14 @@
 component extends="models.Stubble" {
-	variables.parseCallCount = 0;
 
-	public array function parse(required array tokens, required string template) {
-		variables.parseCallCount++;
-		return super.parse(argumentCollection = arguments);
+	variables._instrumentedParser = new InstrumentedParser();
+	variables._parser = variables._instrumentedParser;
+
+	public function init() {
+		super.init(parser = variables._instrumentedParser);
+		return this;
 	}
 
 	public numeric function getParseCallCount() {
-		return variables.parseCallCount;
+		return variables._instrumentedParser.getParseCallCount();
 	}
 }

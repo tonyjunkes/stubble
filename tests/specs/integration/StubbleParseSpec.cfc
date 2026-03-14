@@ -1,9 +1,9 @@
 /**
- * Stubble parse() BDD Test
+ * Stubble parse() integration BDD Test
  */
 component extends="testbox.system.BaseSpec" {
 	function run( testResults, testBox ){
-		describe( "Stubble parse()", function(){
+		describe( "Stubble.parse() integration", function(){
 			beforeEach( function(){
 				variables.stubble = createObject( "component", "models.Stubble" );
 			} );
@@ -54,33 +54,6 @@ component extends="testbox.system.BaseSpec" {
 				expect( ast[ 1 ].type ).toBe( "section" );
 				expect( ast[ 1 ].rawText ).toBe( "" );
 				expect( ast[ 1 ].children ).toHaveLength( 0 );
-			} );
-
-			it( "throws when closing section has no opening", function(){
-				var template = "{{/people}}";
-				expect( function(){
-					variables.stubble.parse( variables.stubble.tokenize( template ), template );
-				} ).toThrow( type = "Stubble.Parser" );
-			} );
-
-			it( "throws when section names mismatch", function(){
-				var template = "{{##a}}x{{/b}}";
-				expect( function(){
-					variables.stubble.parse( variables.stubble.tokenize( template ), template );
-				} ).toThrow( type = "Stubble.Parser" );
-			} );
-
-			it( "throws on unclosed sections", function(){
-				var template = "{{##a}}x";
-				expect( function(){
-					variables.stubble.parse( variables.stubble.tokenize( template ), template );
-				} ).toThrow( type = "Stubble.Parser" );
-			} );
-
-			it( "throws on unsupported token types", function(){
-				expect( function(){
-					variables.stubble.parse( [ { type: "unknown" } ], "" );
-				} ).toThrow( type = "Stubble.Parser" );
 			} );
 		} );
 	}
