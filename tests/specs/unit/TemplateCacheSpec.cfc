@@ -101,6 +101,89 @@ component extends="testbox.system.BaseSpec" {
 					expect( callCount ).toBe( 2 );
 				} );
 
+					it( "does not repopulate the cache when disabled during an in-flight parse", function(){
+						var gateLockName = "TemplateCacheSpec.parseGate." & replace( createUUID(), "-", "", "all" );
+						var threadName = "templateCacheDisableRace_" & getTickCount();
+
+						lock name=gateLockName type="exclusive" timeout="5" {
+							thread
+								action       = "run"
+								name         = threadName
+								cache        = variables.cache
+								gateLockName = gateLockName
+							{
+								thread.hadError = false;
+								thread.parseStarted = false;
+								thread.result = [];
+
+								try {
+									thread.result = attributes.cache.getOrSet(
+										"hello",
+										"{{",
+										"}}",
+										function( t, o, c ){
+											thread.parseStarted = true;
+											lock name=attributes.gateLockName type="exclusive" timeout="5" {
+												return [ { type: "text", value: t } ];
+											}
+										}
+									);
+								} catch ( any e ) {
+									thread.hadError = true;
+									thread.errorMessage = e.message;
+								}
+							};
+
+							var deadline = getTickCount() + 5000;
+							var parseStarted = false;
+
+							while ( getTickCount() < deadline ) {
+								if (
+									structKeyExists( cfthread, threadName ) &&
+									structKeyExists( cfthread[ threadName ], "parseStarted" ) &&
+									cfthread[ threadName ].parseStarted
+								) {
+									parseStarted = true;
+									break;
+								}
+
+								sleep( 25 );
+							}
+
+							expect( parseStarted ).toBeTrue();
+							variables.cache.configure( enabled = false );
+						}
+
+						thread action = "join" name = threadName;
+
+						expect( cfthread[ threadName ].hadError ).toBeFalse();
+						expect( arrayLen( cfthread[ threadName ].result ) ).toBe( 1 );
+						expect( cfthread[ threadName ].result[ 1 ].type ).toBe( "text" );
+						expect( cfthread[ threadName ].result[ 1 ].value ).toBe( "hello" );
+
+						var stats = variables.cache.getStats();
+						expect( stats.enabled ).toBeFalse();
+						expect( stats.currentEntries ).toBe( 0 );
+
+						variables.cache.configure( enabled = true );
+
+						var replayParseCount = 0;
+						var replayedResult = variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
+							replayParseCount++;
+							return [ { type: "text", value: t } ];
+						} );
+
+						variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
+							replayParseCount++;
+							return [ { type: "text", value: t } ];
+						} );
+
+						expect( arrayLen( replayedResult ) ).toBe( 1 );
+						expect( replayedResult[ 1 ].value ).toBe( "hello" );
+						expect( replayParseCount ).toBe( 1 );
+						expect( variables.cache.getStats().currentEntries ).toBe( 1 );
+					} );
+
 				it( "differentiates entries by template content", function(){
 					var parseFn = function( t, o, c ){ return [ t ]; };
 

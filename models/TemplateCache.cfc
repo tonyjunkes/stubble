@@ -47,24 +47,28 @@ component displayname="TemplateCache" {
 		required string closeDelimiter,
 		required function parseFn
 	) {
-		if (!variables._cacheEnabled) {
-			return arguments.parseFn(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
-		}
-
 		var cacheKey = _buildKey(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		var cachedAst = [];
 		var hasCached = false;
+		var cacheEnabled = false;
 
 		lock name=variables._cacheLockName type="readonly" timeout="5" {
-			hasCached = structKeyExists(variables._templateCache, cacheKey);
-			if (hasCached) {
-				cachedAst = variables._templateCache[cacheKey];
+			cacheEnabled = variables._cacheEnabled;
+			if (cacheEnabled) {
+				hasCached = structKeyExists(variables._templateCache, cacheKey);
+				if (hasCached) {
+					cachedAst = variables._templateCache[cacheKey];
+				}
 			}
+		}
+
+		if (!cacheEnabled) {
+			return arguments.parseFn(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		}
 
 		if (hasCached) {
 			lock name=variables._cacheLockName type="exclusive" timeout="5" {
-				if (structKeyExists(variables._templateCache, cacheKey)) {
+				if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
 					_touchKey(cacheKey);
 				}
 			}
@@ -73,12 +77,17 @@ component displayname="TemplateCache" {
 
 		var ast = arguments.parseFn(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		lock name=variables._cacheLockName type="exclusive" timeout="5" {
-			if (!structKeyExists(variables._templateCache, cacheKey)) {
-				variables._templateCache[cacheKey] = ast;
-			}
+			if (variables._cacheEnabled) {
+				if (!structKeyExists(variables._templateCache, cacheKey)) {
+					variables._templateCache[cacheKey] = ast;
+				}
 
-			_touchKey(cacheKey);
-			_evictIfNeeded();
+				if (structKeyExists(variables._templateCache, cacheKey)) {
+					_touchKey(cacheKey);
+				}
+
+				_evictIfNeeded();
+			}
 		}
 
 		return ast;
