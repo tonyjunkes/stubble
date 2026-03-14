@@ -2,7 +2,7 @@
 stubble = new models.Stubble();
 
 function printCase(required string title, required string template, required any data, struct partials = {}) {
-	output = stubble.render(arguments.template, arguments.data, arguments.partials);
+	var output = stubble.render(arguments.template, arguments.data, arguments.partials);
 	writeOutput("<h3>" & arguments.title & "</h3>");
 	writeOutput("<b>Template</b><pre>" & arguments.template & "</pre>");
 	writeOutput("<b>Output</b><pre>" & output & "</pre>");

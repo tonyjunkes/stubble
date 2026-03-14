@@ -32,12 +32,14 @@ Treat spec compatibility as a primary concern when changing parsing or rendering
 - `ModuleConfig.cfc`: ColdBox module descriptor. Registers WireBox mappings, a global helper, and cache settings.
 - `helpers/StubbleHelper.cfm`: global `renderMustache()` convenience function available in ColdBox applications when the module is loaded.
 - `examples/`: runnable demos, including `examples/index.cfm` and supporting templates under `examples/templates/`.
-- `tests/`: project test harness, specs, fixtures, and results.
-- `tests/specs/unit/`: component-level tests for Tokenizer, Parser, Render, FileTemplate, TemplateCache, and StringUtil.
-- `tests/specs/unit/mustache/`: Mustache spec compliance suites — interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, and dynamic names.
-- `tests/specs/integration/`: broader integration and concurrency coverage.
-- `tests/resources/`: test fixtures including instrumented subclasses (`InstrumentedStubble.cfc`, `InstrumentedParser.cfc`), CFC fixtures (`DynamicLookupFixture.cfc`), and `.mustache` template files.
-- `testbox/`: installed TestBox dependency. Project tests live under `tests/`, not under `testbox/`.
+- `test-harness/`: embedded ColdBox app and executable test harness used to run the base Stubble suites alongside ColdBox module tests.
+- `test-harness/tests/`: TestBox runner, browser UI, specs, fixtures, and test resources.
+- `test-harness/tests/specs/unit/`: component-level tests for Tokenizer, Parser, Render, FileTemplate, TemplateCache, and StringUtil.
+- `test-harness/tests/specs/unit/mustache/`: Mustache spec compliance suites — interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, and dynamic names.
+- `test-harness/tests/specs/integration/`: broader integration and concurrency coverage for the standalone engine.
+- `test-harness/tests/specs/ModuleSpec.cfc`: ColdBox module bootstrap and integration coverage exercised through the harness app.
+- `test-harness/tests/resources/`: test fixtures including instrumented subclasses (`InstrumentedStubble.cfc`, `InstrumentedParser.cfc`), CFC fixtures (`DynamicLookupFixture.cfc`), and `.mustache` template files.
+- `test-harness/testbox/`: installed TestBox dependency for the harness. Project tests live under `test-harness/tests/`, not under `test-harness/testbox/`.
 - `.github/workflows/`: GitHub Actions CI definitions.
 
 ## Architecture
@@ -74,31 +76,32 @@ When making changes, match the concern to the component: token recognition belon
 ## Local Workflow
 
 - CommandBox is the recommended way to run examples, contribute changes, and execute tests.
-- Install dependencies with `box install`.
+- Install dependencies with `box run-script install:dependencies` or run `box install` in both the repository root and `test-harness/`.
 - Start a local server with one of the root `server-*.json` files, for example: `box server start serverConfigFile="server-lucee@6.json"`
 - The provided server configs listen on port `8520`.
-- Once the server is running, examples are available from `/examples/` or `/examples/index.cfm`.
-- `box.json` configures TestBox to use `http://localhost:8520/tests/runner.cfm`.
+- The server configs use `test-harness` as the webroot, and the root `box.json` points TestBox at `http://localhost:8520/tests/runner.cfm` for the combined standalone and ColdBox module suites.
 
 ## Test Harness
 
-- Tests are run with TestBox.
-- The HTTP runner is `tests/runner.cfm`, which includes the TestBox HTML runner and defaults to the `tests.specs` package.
+- Tests are run with TestBox through the ColdBox harness in `test-harness/`.
+- The HTTP runner file is `test-harness/tests/runner.cfm`, which includes the TestBox HTML runner and defaults to the `tests.specs` package.
+- Because the server webroot is `test-harness`, the runner is exposed at `http://127.0.0.1:8520/tests/runner.cfm`.
 - Preferred CLI command: `box testbox run`
 - Browser runner: `http://127.0.0.1:8520/tests/runner.cfm`
 - For machine-readable output, the runner supports reporters such as `reporter=json`.
 - New functionality, bug fixes, and behavior changes must include accompanying tests.
 - Tests should be written in BDD format.
-- Component-level tests (Tokenizer, Parser, TemplateCache, StringUtil, Render, FileTemplate) belong in `tests/specs/unit/`.
-- Mustache spec compliance tests belong in `tests/specs/unit/mustache/`. Each file maps to a section of the official spec (interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, dynamic names).
-- Integration and concurrency tests belong in `tests/specs/integration/`.
-- Test fixtures live in `tests/resources/`. `InstrumentedStubble.cfc` and `InstrumentedParser.cfc` track parse invocations for cache verification.
-- Put tests in the most specific suite that matches the change. If the change affects Mustache semantics, add or update the corresponding spec-oriented tests in `tests/specs/unit/mustache/`.
+- Component-level tests (Tokenizer, Parser, TemplateCache, StringUtil, Render, FileTemplate) belong in `test-harness/tests/specs/unit/`.
+- Mustache spec compliance tests belong in `test-harness/tests/specs/unit/mustache/`. Each file maps to a section of the official spec (interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, dynamic names).
+- Integration and concurrency tests belong in `test-harness/tests/specs/integration/`.
+- ColdBox module wiring and helper behavior should be covered through harness-driven specs such as `test-harness/tests/specs/ModuleSpec.cfc`.
+- Test fixtures live in `test-harness/tests/resources/`. `InstrumentedStubble.cfc` and `InstrumentedParser.cfc` track parse invocations for cache verification.
+- Put tests in the most specific suite that matches the change. If the change affects Mustache semantics, add or update the corresponding spec-oriented tests in `test-harness/tests/specs/unit/mustache/`.
 
 ## CI Expectations
 
 - CI runs through GitHub Actions workflows in `.github/workflows/`.
-- The workflow starts CommandBox servers from the relevant `server-*.json` file and executes `box testbox run` across the engine matrix.
+- The workflow starts CommandBox servers from the relevant `server-*.json` file, serves `test-harness` as the webroot, and executes `box testbox run` against the combined standalone and ColdBox module suites across the engine matrix.
 - Stable engine matrix: `lucee@6`, `lucee@7`, `adobe@2023`, `adobe@2025`, `boxlang-cfml@1`.
 - Experimental engines (continue-on-error): `lucee@be`, `adobe@be`.
 - CI requires Java 21.

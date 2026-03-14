@@ -2,24 +2,24 @@
 .idea
 
 # Artifacts and temp folders
-.artifacts/**
-.tmp/**
+.artifacts
+.tmp
 .DS_Store
 
 # Engine + Secrets
 .env
-.engine/**
+.engine
 
 # Dependencies
-test-harness/coldbox/**
-test-harness/docbox/**
-test-harness/testbox/**
-test-harness/logs/**
-test-harness/modules/**
+test-harness/coldbox
+test-harness/docbox
+test-harness/testbox
+test-harness/logs
+test-harness/modules
 test-harness/tests/results
 
 # modules
-modules/**
+modules
 
 # log files
-logs/**
+logs
