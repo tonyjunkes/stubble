@@ -4,9 +4,6 @@
     "author":"Tony Junkes",
     "homepage":"https://github.com/tonyjunkes/stubble",
     "documentation":"https://github.com/tonyjunkes/stubble",
-    "scripts":{
-        "bx-modules:install":"install bx-compat-cfml@be,bx-esapi"
-    },
     "repository":{
         "type":"git",
         "URL":"https://github.com/tonyjunkes/stubble"
@@ -28,19 +25,19 @@
         }
     ],
     "dependencies":{},
-    "devDependencies":{
-        "testbox":"^6.5.0+18"
-    },
-    "installPaths":{
-        "testbox":"testbox/"
-    },
+    "devDependencies":{},
     "ignore":[
         "**/.*",
         "test",
         "tests",
         "docs/**/*.*",
-        "server.json"
+        "server*.json",
+        "examples",
+        "*.md"
     ],
+    "scripts":{
+        "install:dependencies":"install && cd test-harness && install"
+    },
     "testbox":{
         "runner":"http://localhost:8520/tests/runner.cfm",
         "verbose":false
