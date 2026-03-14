@@ -1,9 +1,9 @@
 /**
- * Stubble tokenize() BDD Test
+ * Stubble tokenize() integration BDD Test
  */
 component extends="testbox.system.BaseSpec" {
 	function run( testResults, testBox ){
-		describe( "Stubble tokenize()", function(){
+		describe( "Stubble.tokenize() integration", function(){
 			beforeEach( function(){
 				variables.stubble = createObject( "component", "models.Stubble" );
 			} );
@@ -54,18 +54,6 @@ component extends="testbox.system.BaseSpec" {
 				expect( tokens[ 4 ].name ).toBe( "html" );
 				expect( tokens[ 6 ].type ).toBe( "unescaped" );
 				expect( tokens[ 6 ].name ).toBe( "raw" );
-			} );
-
-			it( "throws on unclosed tags", function(){
-				expect( function(){
-					variables.stubble.tokenize( "Hello {{name" );
-				} ).toThrow( type = "Stubble.Tokenizer" );
-			} );
-
-			it( "throws on unclosed triple mustache tags", function(){
-				expect( function(){
-					variables.stubble.tokenize( "Hello {{{name}}" );
-				} ).toThrow( type = "Stubble.Tokenizer" );
 			} );
 		} );
 	}

@@ -1,9 +1,9 @@
 /**
- * Stubble cache BDD Test
+ * Stubble cache integration BDD Test
  */
 component extends="testbox.system.BaseSpec" {
 	function run( testResults, testBox ){
-		describe( "Stubble cache controls", function(){
+		describe( "Stubble cache controls integration", function(){
 			beforeEach( function(){
 				variables.stubble = createObject( "component", "models.Stubble" );
 			} );
