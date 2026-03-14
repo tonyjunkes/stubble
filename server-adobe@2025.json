@@ -6,18 +6,22 @@
     },
     "web":{
         "http":{
-            "port":8520
+            "port":"8520"
         },
         "rewrites":{
             "enable":true
+        },
+        "webroot":"test-harness",
+        "aliases":{
+            "/moduleroot/stubble":"../"
         }
     },
-    "jvm":{
-        "heapSize":"1024",
+    "openBrowser":false,
+    "JVM":{
+        "heapSize":"768",
         "javaVersion":"openjdk21_jre"
     },
-    "openBrowser":false,
-    "scripts":{
-        "onServerInstall":"cfpm install debugger"
+    "scripts" : {
+        "onServerInstall":"cfpm install zip,debugger"
     }
 }

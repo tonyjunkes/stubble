@@ -6,11 +6,19 @@
     },
     "web":{
         "http":{
-            "port":8520
+            "port":"8520"
         },
         "rewrites":{
             "enable":true
+        },
+        "webroot":"test-harness",
+        "aliases":{
+            "/moduleroot/stubble":"../"
         }
     },
-    "openBrowser":false
+    "openBrowser":false,
+    "JVM":{
+        "heapSize":"768",
+        "javaVersion":"openjdk21_jre"
+    }
 }

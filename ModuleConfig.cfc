@@ -6,7 +6,7 @@ component {
     this.version = "0.1.0";
     this.cfmapping = "stubble";
     this.autoMapModels = true;
-    this.helpers = ["helpers/StubbleHelper.cfm"];
+    this.applicationHelper = ["helpers/StubbleHelper.cfm"];
 
     function configure() {
         settings = {
