@@ -28,8 +28,7 @@
     "devDependencies":{},
     "ignore":[
         "**/.*",
-        "test",
-        "tests",
+        "test-harness",
         "docs/**/*.*",
         "server*.json",
         "examples",
