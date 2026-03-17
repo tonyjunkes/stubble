@@ -21,7 +21,7 @@
         "heapSize":"768",
         "javaVersion":"openjdk21_jre"
     },
-    "scripts" : {
+    "scripts":{
         "onServerInstall":"cfpm install zip,debugger"
     }
 }
