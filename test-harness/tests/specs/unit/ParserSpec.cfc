@@ -206,7 +206,7 @@ component extends="testbox.system.BaseSpec" {
 					];
 					expect( function(){
 						variables.parser.parse( tokens, "{{/people}}" );
-					} ).toThrow( type = "Stubble.Parser" );
+					} ).toThrow( type = "Stubble.ParserSectionException" );
 				} );
 
 				it( "throws on section name mismatch", function(){
@@ -216,7 +216,7 @@ component extends="testbox.system.BaseSpec" {
 					];
 					expect( function(){
 						variables.parser.parse( tokens, "{{##a}}{{/b}}" );
-					} ).toThrow( type = "Stubble.Parser" );
+					} ).toThrow( type = "Stubble.ParserSectionException" );
 				} );
 
 				it( "throws on unclosed section", function(){
@@ -226,13 +226,13 @@ component extends="testbox.system.BaseSpec" {
 					];
 					expect( function(){
 						variables.parser.parse( tokens, "{{##a}}x" );
-					} ).toThrow( type = "Stubble.Parser" );
+					} ).toThrow( type = "Stubble.ParserSectionException" );
 				} );
 
 				it( "throws on unsupported token type", function(){
 					expect( function(){
 						variables.parser.parse( [ { type: "bogus" } ], "" );
-					} ).toThrow( type = "Stubble.Parser" );
+					} ).toThrow( type = "Stubble.ParserTokenException" );
 				} );
 
 				it( "parses block container nodes", function(){

@@ -17,9 +17,9 @@ Treat spec compatibility as a primary concern when changing parsing or rendering
 ## Compatibility Targets
 
 - Keep changes CFML engine agnostic.
-- Supported targets are Adobe ColdFusion 2023+, Adobe ColdFusion 2025+, Lucee 6+, Lucee 7+, and BoxLang 1+.
+- Supported targets are Adobe ColdFusion 2023+, Adobe ColdFusion 2025+, Lucee 6+, Lucee 7+, and BoxLang 1+ (both CFML compat mode and native BoxLang).
 - Root `server-*.json` files define the CommandBox server options used for each engine target.
-- CI also exercises bleeding-edge Adobe and Lucee builds as experimental targets.
+- CI also exercises bleeding-edge Adobe, Lucee, and BoxLang builds as experimental targets.
 - Prefer portable CFML constructs. If an engine-specific workaround is required, isolate it and cover it with tests.
 
 ## Repository Layout
@@ -27,14 +27,14 @@ Treat spec compatibility as a primary concern when changing parsing or rendering
 - `models/Stubble.cfc`: main orchestrator — render pipeline, context lookup, lambda support, HTML escaping. Marked as a singleton.
 - `models/Tokenizer.cfc`: stateless scanner that converts a template string into an array of tokens.
 - `models/Parser.cfc`: stateless builder that converts a token array into an AST node tree. Handles nesting validation, block/parent inheritance, and standalone whitespace.
-- `models/TemplateCache.cfc`: thread-safe LRU cache for parsed ASTs. Uses exclusive locks for concurrent access.
+- `models/TemplateCache.cfc`: thread-safe LRU cache for parsed ASTs. Uses read-only and exclusive locks for concurrent access.
 - `models/StringUtil.cfc`: static utility methods for line break detection, indentation analysis, and whitespace normalization.
 - `ModuleConfig.cfc`: ColdBox module descriptor. Registers WireBox mappings, a global helper, and cache settings.
 - `helpers/StubbleHelper.cfm`: global `renderMustache()` convenience function available in ColdBox applications when the module is loaded.
 - `examples/`: runnable demos, including `examples/index.cfm` and supporting templates under `examples/templates/`.
 - `test-harness/`: embedded ColdBox app and executable test harness used to run the base Stubble suites alongside ColdBox module tests.
 - `test-harness/tests/`: TestBox runner, browser UI, specs, fixtures, and test resources.
-- `test-harness/tests/specs/unit/`: component-level tests for Tokenizer, Parser, Render, FileTemplate, TemplateCache, and StringUtil.
+- `test-harness/tests/specs/unit/`: component-level tests for Tokenizer, Parser, Render, TemplateCache, StringUtil, and FileTemplate (file-based template workflows through Stubble).
 - `test-harness/tests/specs/unit/mustache/`: Mustache spec compliance suites — interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, and dynamic names.
 - `test-harness/tests/specs/integration/`: broader integration and concurrency coverage for the standalone engine.
 - `test-harness/tests/specs/ModuleSpec.cfc`: ColdBox module bootstrap and integration coverage exercised through the harness app.
@@ -52,7 +52,7 @@ The render pipeline flows through several components:
 4. `Parser.parse()` builds an AST from the tokens.
 5. `Stubble._renderNodes()` walks the AST, resolving context via `_lookup()` and recursing into sections, blocks, and partials.
 
-Tokenizer, Parser, and StringUtil are stateless and inherently thread-safe. TemplateCache uses exclusive locks. Stubble itself is a singleton.
+Tokenizer, Parser, and StringUtil are stateless and inherently thread-safe. TemplateCache uses read-only and exclusive locks. Stubble itself is a singleton.
 
 `Stubble.init()` accepts optional `Tokenizer`, `Parser`, and `TemplateCache` arguments. When omitted, default instances are created internally. This allows WireBox injection in ColdBox apps and mock injection in tests.
 
@@ -91,7 +91,7 @@ When making changes, match the concern to the component: token recognition belon
 - For machine-readable output, the runner supports reporters such as `reporter=json`.
 - New functionality, bug fixes, and behavior changes must include accompanying tests.
 - Tests should be written in BDD format.
-- Component-level tests (Tokenizer, Parser, TemplateCache, StringUtil, Render, FileTemplate) belong in `test-harness/tests/specs/unit/`.
+- Component-level tests (Tokenizer, Parser, TemplateCache, StringUtil, Render) belong in `test-harness/tests/specs/unit/`. FileTemplate tests also live here and cover file-based template workflows through Stubble.
 - Mustache spec compliance tests belong in `test-harness/tests/specs/unit/mustache/`. Each file maps to a section of the official spec (interpolation, sections, inverted, partials, lambdas, comments, delimiters, inheritance, dynamic names).
 - Integration and concurrency tests belong in `test-harness/tests/specs/integration/`.
 - ColdBox module wiring and helper behavior should be covered through harness-driven specs such as `test-harness/tests/specs/ModuleSpec.cfc`.
@@ -102,8 +102,8 @@ When making changes, match the concern to the component: token recognition belon
 
 - CI runs through GitHub Actions workflows in `.github/workflows/`.
 - The workflow starts CommandBox servers from the relevant `server-*.json` file, serves `test-harness` as the webroot, and executes `box testbox run` against the combined standalone and ColdBox module suites across the engine matrix.
-- Stable engine matrix: `lucee@6`, `lucee@7`, `adobe@2023`, `adobe@2025`, `boxlang-cfml@1`.
-- Experimental engines (continue-on-error): `lucee@be`, `adobe@be`.
+- Stable engine matrix: `lucee@6`, `lucee@7`, `adobe@2023`, `adobe@2025`, `boxlang-cfml@1`, `boxlang@1`.
+- Experimental engines (continue-on-error): `lucee@be`, `adobe@be`, `boxlang@be`.
 - CI requires Java 21.
 - Keep local validation aligned with the same server configs and commands when practical.
 
