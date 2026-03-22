@@ -1,4 +1,11 @@
 component displayname="Parser" {
+	variables.CONTAINER_NODE_TYPES = {
+		section_start: "section",
+		inverted_start: "inverted",
+		block_start: "block",
+		parent_start: "parent"
+	};
+
 	public array function parse(required array tokens, required string template) {
 		var root = { type: "root", children: [] };
 		var stack = [root];
@@ -14,16 +21,9 @@ component displayname="Parser" {
 					break;
 
 				case "variable":
-					arrayAppend(current.children, {
-						type: "variable",
-						name: token.name,
-						nameParts: buildNameParts(token.name)
-					});
-					break;
-
 				case "unescaped":
 					arrayAppend(current.children, {
-						type: "unescaped",
+						type: token.type,
 						name: token.name,
 						nameParts: buildNameParts(token.name)
 					});
@@ -38,8 +38,6 @@ component displayname="Parser" {
 					break;
 
 				case "set_delimiter":
-					break;
-
 				case "comment":
 					break;
 
@@ -71,8 +69,8 @@ component displayname="Parser" {
 				case "section_end":
 					if (arrayLen(stack) == 1) {
 						throw(
-							type = "Stubble.Parser",
-							message = "Closing tag without opening tag: " & token.name
+							type = "Stubble.ParserSectionException",
+							message = "Closing tag without opening tag: #token.name#"
 						);
 					}
 
@@ -80,8 +78,8 @@ component displayname="Parser" {
 					var openName = stack[openIndex].name;
 					if (openName != token.name) {
 						throw(
-							type = "Stubble.Parser",
-							message = "Section mismatch. Opened '" & openName & "' but closed '" & token.name & "'."
+							type = "Stubble.ParserSectionException",
+							message = "Section mismatch. Opened '#openName#' but closed '#token.name#'."
 						);
 					}
 
@@ -96,13 +94,13 @@ component displayname="Parser" {
 					break;
 
 				default:
-					throw(type = "Stubble.Parser", message = "Unsupported token type: " & token.type);
+					throw(type = "Stubble.ParserTokenException", message = "Unsupported token type: #token.type#");
 			}
 		}
 
 		if (arrayLen(stack) != 1) {
 			var unclosed = stack[arrayLen(stack)];
-			throw(type = "Stubble.Parser", message = "Unclosed section: " & unclosed.name);
+			throw(type = "Stubble.ParserSectionException", message = "Unclosed section: #unclosed.name#");
 		}
 
 		_finalizeParsedNodes(root.children, arguments.template);
@@ -123,18 +121,11 @@ component displayname="Parser" {
 	}
 
 	private string function _getContainerNodeType(required string tokenType) {
-		switch (arguments.tokenType) {
-			case "section_start":
-				return "section";
-			case "inverted_start":
-				return "inverted";
-			case "block_start":
-				return "block";
-			case "parent_start":
-				return "parent";
+		if (structKeyExists(variables.CONTAINER_NODE_TYPES, arguments.tokenType)) {
+			return variables.CONTAINER_NODE_TYPES[arguments.tokenType];
 		}
 
-		throw(type = "Stubble.Parser", message = "Unsupported container token type: " & arguments.tokenType);
+		throw(type = "Stubble.ParserTokenException", message = "Unsupported container token type: #arguments.tokenType#");
 	}
 
 	private void function _finalizeParsedNodes(required array nodes, required string template) {
@@ -234,8 +225,7 @@ component displayname="Parser" {
 	}
 
 	private string function _getCommonLeadingIndentation(required string templateText) {
-		var normalizedText = replace(arguments.templateText, chr(13) & chr(10), chr(10), "all");
-		normalizedText = replace(normalizedText, chr(13), chr(10), "all");
+		var normalizedText = reReplace(arguments.templateText, chr(13) & chr(10) & "?", chr(10), "all");
 		var lines = listToArray(normalizedText, chr(10), true);
 		var commonIndent = "";
 		var hasContent = false;

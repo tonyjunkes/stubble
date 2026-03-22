@@ -1,8 +1,8 @@
 <cfscript>
 stubble = new models.Stubble();
 
-function printCase(required string title, required string template, required any data, struct partials = {}) {
-	var output = stubble.render(arguments.template, arguments.data, arguments.partials);
+function printCase(required string title, required string template, required any view, struct partials = {}) {
+	var output = stubble.render(arguments.template, arguments.view, arguments.partials);
 	writeOutput("<h3>" & arguments.title & "</h3>");
 	writeOutput("<b>Template</b><pre>" & encodeForHTML(arguments.template) & "</pre>");
 	writeOutput("<b>Rendered Output</b><div>" & output & "</div>");
@@ -22,7 +22,7 @@ detailedProjectCardPartial = readExampleTemplate("partials/projectCard.mustache"
 printCase(
 	title = "File Template + File Partial + Complex Data",
 	template = detailedTemplate,
-	data = {
+	view = {
 		report: {
 			title: "Q2 Release Readiness",
 			generatedAt: dateTimeFormat(now(), "yyyy-mm-dd HH:nn:ss")

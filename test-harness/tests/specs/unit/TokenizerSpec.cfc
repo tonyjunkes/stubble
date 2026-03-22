@@ -172,19 +172,19 @@ component extends="testbox.system.BaseSpec" {
 				it( "throws on unclosed tag", function(){
 					expect( function(){
 						variables.tokenizer.tokenize( "Hello {{name" );
-					} ).toThrow( type = "Stubble.Tokenizer" );
+					} ).toThrow( type = "Stubble.TokenizerUnclosedTagException" );
 				} );
 
 				it( "throws on unclosed triple mustache", function(){
 					expect( function(){
 						variables.tokenizer.tokenize( "Hello {{{name}}" );
-					} ).toThrow( type = "Stubble.Tokenizer" );
+					} ).toThrow( type = "Stubble.TokenizerUnclosedTagException" );
 				} );
 
 				it( "throws on invalid set delimiter tag", function(){
 					expect( function(){
 						variables.tokenizer.tokenize( "{{=bad=}}" );
-					} ).toThrow( type = "Stubble.Tokenizer" );
+					} ).toThrow( type = "Stubble.TokenizerDelimiterException" );
 				} );
 
 				it( "tokenizes multiple adjacent tags", function(){

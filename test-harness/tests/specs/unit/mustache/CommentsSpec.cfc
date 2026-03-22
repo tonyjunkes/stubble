@@ -108,15 +108,15 @@ component extends="testbox.system.BaseSpec" {
 			} );
 
 			it( "Variable Name Collision: Comments must never render, even if variable with same name exists.", function(){
-				var data = {};
-				data[ "! comment" ] = 1;
-				data[ "! comment " ] = 2;
-				data[ "!comment" ] = 3;
-				data[ "comment" ] = 4;
+				var view = {};
+				view[ "! comment" ] = 1;
+				view[ "! comment " ] = 2;
+				view[ "!comment" ] = 3;
+				view[ "comment" ] = 4;
 
 				var output = variables.stubble.render(
 					"comments never show: >{{! comment }}<",
-					data
+					view
 				);
 
 				expect( output ).toBe( "comments never show: ><" );

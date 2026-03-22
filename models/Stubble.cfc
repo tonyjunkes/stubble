@@ -35,9 +35,9 @@ component displayname="Stubble" singleton {
 		return variables._parser.parse(argumentCollection = arguments);
 	}
 
-	public string function render(required string template, any data = {}, struct partials = {}) {
+	public string function render(required string template, any view = {}, struct partials = {}) {
 		var ast = _getParsedTemplate(arguments.template);
-		var contextStack = [arguments.data];
+		var contextStack = [arguments.view];
 		return _renderNodes(ast, contextStack, arguments.partials, {});
 	}
 
@@ -159,7 +159,7 @@ component displayname="Stubble" singleton {
 					break;
 
 				default:
-					throw(type = "Stubble.Renderer", message = "Unsupported node type: " & node.type);
+					throw(type = "Stubble.RendererException", message = "Unsupported node type: #node.type#");
 			}
 		}
 
@@ -512,8 +512,6 @@ component displayname="Stubble" singleton {
 		} catch (any e) {
 			return false;
 		}
-
-		return false;
 	}
 
 	private array function _buildAccessorMethodNames(required string key) {
@@ -543,15 +541,10 @@ component displayname="Stubble" singleton {
 		required struct partials,
 		struct blockOverrides = {}
 	) {
-		var result = "";
-		var currentContext = arguments.contextStack[arrayLen(arguments.contextStack)];
 		var arity = _getFunctionArity(arguments.lambdaFn);
-
-		if (arity <= 0) {
-			result = arguments.lambdaFn();
-		} else {
-			result = arguments.lambdaFn(currentContext);
-		}
+		var result = arity <= 0
+			? arguments.lambdaFn()
+			: arguments.lambdaFn(arguments.contextStack[arrayLen(arguments.contextStack)]);
 
 		var rendered = _toString(result);
 		if (find("{{", rendered) == 0) {

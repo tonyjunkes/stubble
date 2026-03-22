@@ -32,7 +32,7 @@ component extends="testbox.system.BaseSpec" {
 
 				expect( function(){
 					variables.stubble.render( template, {} );
-				} ).toThrow( type = "Stubble.Tokenizer" );
+				} ).toThrow( type = "Stubble.TokenizerUnclosedTagException" );
 			} );
 
 			it( "renders nested partial inclusions from mustache files", function(){

@@ -34,7 +34,7 @@ component displayname="Tokenizer" {
 
 				var tripleClosePos = find("}}}", arguments.template, openPos + 3);
 				if (tripleClosePos == 0) {
-					throw(type = "Stubble.Tokenizer", message = "Unclosed triple mustache tag.");
+					throw(type = "Stubble.TokenizerUnclosedTagException", message = "Unclosed triple mustache tag.");
 				}
 
 				var tripleName = trim(mid(arguments.template, openPos + 3, tripleClosePos - (openPos + 3)));
@@ -51,7 +51,7 @@ component displayname="Tokenizer" {
 
 			var closePos = find(currentCloseDelimiter, arguments.template, openPos + openDelimiterLength);
 			if (closePos == 0) {
-				throw(type = "Stubble.Tokenizer", message = "Unclosed tag.");
+				throw(type = "Stubble.TokenizerUnclosedTagException", message = "Unclosed tag.");
 			}
 
 			var content = trim(
@@ -67,56 +67,7 @@ component displayname="Tokenizer" {
 			};
 
 			if (len(content) > 0) {
-				if (_isSetDelimiterTag(content)) {
-					var delimiterPair = _parseDelimiterPair(content);
-					token.type = "set_delimiter";
-					token.openDelimiter = delimiterPair.openDelimiter;
-					token.closeDelimiter = delimiterPair.closeDelimiter;
-				} else {
-					var sigil = left(content, 1);
-					var body = trim(mid(content, 2, len(content) - 1));
-
-					switch (sigil) {
-						case "!":
-							token.type = "comment";
-							token.name = body;
-							break;
-						case ">":
-							token.type = "partial";
-							token.name = body;
-							break;
-						case "<":
-							token.type = "parent_start";
-							token.name = body;
-							break;
-						case "/":
-							token.type = "section_end";
-							token.name = body;
-							if (left(token.name, 1) == chr(35)) {
-								token.name = trim(mid(token.name, 2, len(token.name) - 1));
-							}
-							break;
-						case "##":
-							token.type = "section_start";
-							token.name = body;
-							break;
-						case "$":
-							token.type = "block_start";
-							token.name = body;
-							break;
-						case "^":
-							token.type = "inverted_start";
-							token.name = body;
-							break;
-						case "&":
-							token.type = "unescaped";
-							token.name = body;
-							break;
-						default:
-							token.type = "variable";
-							token.name = content;
-					}
-				}
+				_classifyTag(token, content);
 			}
 
 			if (_isStandaloneTokenType(token.type)) {
@@ -168,8 +119,65 @@ component displayname="Tokenizer" {
 		};
 	}
 
+	private void function _classifyTag(required struct token, required string content) {
+		if (_isSetDelimiterTag(arguments.content)) {
+			var delimiterPair = _parseDelimiterPair(arguments.content);
+			arguments.token.type = "set_delimiter";
+			arguments.token.openDelimiter = delimiterPair.openDelimiter;
+			arguments.token.closeDelimiter = delimiterPair.closeDelimiter;
+			return;
+		}
+
+		var sigil = left(arguments.content, 1);
+		var body = trim(mid(arguments.content, 2, len(arguments.content) - 1));
+
+		switch (sigil) {
+			case "!":
+				arguments.token.type = "comment";
+				arguments.token.name = body;
+				break;
+			case ">":
+				arguments.token.type = "partial";
+				arguments.token.name = body;
+				break;
+			case "<":
+				arguments.token.type = "parent_start";
+				arguments.token.name = body;
+				break;
+			case "/":
+				arguments.token.type = "section_end";
+				arguments.token.name = body;
+				if (left(arguments.token.name, 1) == chr(35)) {
+					arguments.token.name = trim(mid(arguments.token.name, 2, len(arguments.token.name) - 1));
+				}
+				break;
+			case "##":
+				arguments.token.type = "section_start";
+				arguments.token.name = body;
+				break;
+			case "$":
+				arguments.token.type = "block_start";
+				arguments.token.name = body;
+				break;
+			case "^":
+				arguments.token.type = "inverted_start";
+				arguments.token.name = body;
+				break;
+			case "&":
+				arguments.token.type = "unescaped";
+				arguments.token.name = body;
+				break;
+			default:
+				arguments.token.type = "variable";
+				arguments.token.name = arguments.content;
+		}
+	}
+
 	private boolean function _isStandaloneTokenType(required string tokenType) {
-		return listFindNoCase("comment,partial,section_start,section_end,inverted_start,set_delimiter", arguments.tokenType) > 0;
+		return arrayFind(
+			["comment", "partial", "section_start", "section_end", "inverted_start", "set_delimiter"],
+			arguments.tokenType
+		);
 	}
 
 	private boolean function _isSetDelimiterTag(required string content) {
@@ -182,7 +190,7 @@ component displayname="Tokenizer" {
 		var delimiterParts = len(normalizedDefinition) ? listToArray(normalizedDefinition, " ") : [];
 
 		if (arrayLen(delimiterParts) != 2) {
-			throw(type = "Stubble.Tokenizer", message = "Invalid set delimiter tag.");
+			throw(type = "Stubble.TokenizerDelimiterException", message = "Invalid set delimiter tag.");
 		}
 
 		return {

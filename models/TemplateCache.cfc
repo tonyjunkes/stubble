@@ -82,10 +82,7 @@ component displayname="TemplateCache" {
 					variables._templateCache[cacheKey] = ast;
 				}
 
-				if (structKeyExists(variables._templateCache, cacheKey)) {
-					_touchKey(cacheKey);
-				}
-
+				_touchKey(cacheKey);
 				_evictIfNeeded();
 			}
 		}
