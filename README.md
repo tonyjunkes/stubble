@@ -45,7 +45,7 @@ box install git://github.com/tonyjunkes/stubble.git
 
 ## Usage
 
-Stubble supports being instantiated directly or used as a ColdBox module. The main API is the `render()` method which accepts a template string, data, and optional partials.
+Stubble supports being instantiated directly or used as a ColdBox module. The main API is the `render()` method which accepts a template string, view data, and optional partials.
 
 ### Direct CFC Instance
 
