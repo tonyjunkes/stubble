@@ -1,8 +1,6 @@
 # Stubble
----
 
 ## Introduction
----
 
 Stubble is a Mustache-inspired engine for rendering Mustache template syntax in CFML. It tokenizes templates, parses them into an AST, and renders against CFML data (view). When enabled, it also caches parsed templates in a thread-safe LRU cache.
 
@@ -13,7 +11,6 @@ Why not? :D There have been a handful of Mustache options in the JVM world that 
 The real experiment was that a vast majority of this project is built using AI Agents in an effort to test the capabilities of building functional, yet efficient CFML tooling in an ever-changing AI ecosystem.
 
 ## Requirements
----
 
 - Adobe ColdFusion 2023+
 - Lucee 6+
@@ -22,7 +19,6 @@ The real experiment was that a vast majority of this project is built using AI A
 > Older CFML engines may still work, providing they support the functionality leveraged, but this project targets supported runtimes.
 
 ## Supported Mustache Features
----
 
 For a high-level overview of the syntax itself, see the [Mustache manual](https://mustache.github.io/mustache.5.html).
 
@@ -40,7 +36,6 @@ The initial implementation of Stubble has put a good amount of focus on the exis
 
 
 ## Installation
----
 
 > This library is not yet published to ForgeBox, but you can still install from the GitHub repository.
 
@@ -49,7 +44,6 @@ box install git://github.com/tonyjunkes/stubble.git
 ```
 
 ## Usage
----
 
 Stubble supports being instantiated directly or used as a ColdBox module. The main API is the `render()` method which accepts a template string, data, and optional partials.
 
@@ -69,18 +63,18 @@ writeOutput(result); // Outputs: Hello World!
 
 #### From A Handler
 
-```cfml
-component{
-	property name="stubble" inject="Stubble@stubble";
+```javascript
+component {
+  property name="stubble" inject="Stubble@stubble";
 
-	any function index( event, rc, prc ) {
+  any function index( event, rc, prc ) {
     // Renders "Hello ColdBox!"
-		prc.greeting = variables.stubble.render(
-			template = "Hello {{name}}!",
-			view = { name : "ColdBox" }
-		);
-		event.setView( "main/index" );
-	}
+    prc.greeting = variables.stubble.render(
+      template = "Hello {{name}}!",
+      view = { name : "ColdBox" }
+    );
+    event.setView( "main/index" );
+  }
 }
 ```
 
@@ -177,6 +171,7 @@ View:
     { name: "BoxLang" }
   ]
 }
+```
 
 Template:
 
@@ -198,7 +193,7 @@ BoxLang
 
 View:
 
-```cfml
+```javascript
 {
   engines: [
     "ColdFusion",
@@ -257,7 +252,7 @@ View:
 
 ```javascript
 {
-	calc: () => { return 2 * 4; }
+  calc: () => { return 2 * 4; }
 }
 ```
 
@@ -300,7 +295,6 @@ Resolve `currentPartial` from the current context and render the matching partia
 Use parent templates with block overrides to compose layouts while keeping rendering inside the current context.
 
 ## Examples
----
 
 There are runnable examples included in the `examples/` directory that demonstrate various features of Stubble, including basic variable interpolation, sections, partials, lambdas, and file-based templates. You can access these examples by starting a local server pointed to the project root and navigating to `http://127.0.0.1:8520/examples/index.cfm`.
 
@@ -309,7 +303,6 @@ There are runnable examples included in the `examples/` directory that demonstra
 - `examples/file-template-partial-demo.cfm` shows file-backed templates and partials with nested data.
 
 ## Public API
----
 
 - `render( required string template, any data = {}, struct partials = {} )`
   Renders a template string against the supplied data and partial map.
@@ -326,7 +319,6 @@ There are runnable examples included in the `examples/` directory that demonstra
 
 
 ## Testing
----
 
 Tests are located in the `test-harness/tests/specs/` directory and are written with TestBox in a BDD style, covering both unit and integration scenarios for the standalone engine, official Mustache specs, and ColdBox module.
 
@@ -357,6 +349,5 @@ The following supported server configs are available in the root of the reposito
 - `server-boxlang@be.json`
 
 ## Acknowledgments
----
 
 Stubble was heavily based and inspired by the [vast Mustache ecosystem](https://mustache.github.io/) and the many developers who have made it all possible. Thanks!
