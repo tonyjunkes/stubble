@@ -1,8 +1,8 @@
 component displayname="StringUtil" {
 	public static numeric function getLineStartPos(required string template, required numeric position) {
-		var prefix = arguments.position > 1 ? left(arguments.template, arguments.position - 1) : "";
-		var lastLineFeed = findLastPosition(chr(10), prefix);
-		var lastCarriageReturn = findLastPosition(chr(13), prefix);
+		var searchFromIndex = arguments.position - 2;
+		var lastLineFeed = arguments.template.lastIndexOf(chr(10), searchFromIndex) + 1;
+		var lastCarriageReturn = arguments.template.lastIndexOf(chr(13), searchFromIndex) + 1;
 
 		return max(lastLineFeed, lastCarriageReturn) + 1;
 	}

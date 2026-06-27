@@ -141,6 +141,18 @@ component extends="testbox.system.BaseSpec" {
 					expect( tokens[ 1 ].name ).toBe( "name" );
 				} );
 
+				it( "updates cached delimiter lengths across multiple delimiter changes", function(){
+					var tokens = variables.tokenizer.tokenize(
+						"{{=<% %>=}}<%first%><%={{ }}=%>{{second}}"
+					);
+
+					expect( tokens ).toHaveLength( 4 );
+					expect( tokens[ 1 ].type ).toBe( "set_delimiter" );
+					expect( tokens[ 2 ].name ).toBe( "first" );
+					expect( tokens[ 3 ].type ).toBe( "set_delimiter" );
+					expect( tokens[ 4 ].name ).toBe( "second" );
+				} );
+
 				it( "handles standalone comment removing surrounding whitespace", function(){
 					var template = "A#chr( 10 )#  {{! standalone }}#chr( 10 )#B";
 					var tokens = variables.tokenizer.tokenize( template );
@@ -150,6 +162,16 @@ component extends="testbox.system.BaseSpec" {
 					expect( tokens[ 1 ].value ).toBe( "A#chr( 10 )#" );
 					expect( tokens[ 2 ].type ).toBe( "comment" );
 					expect( tokens[ 3 ].type ).toBe( "text" );
+					expect( tokens[ 3 ].value ).toBe( "B" );
+				} );
+
+				it( "handles standalone tags with CRLF line endings", function(){
+					var template = "A" & chr( 13 ) & chr( 10 ) & "  {{! standalone }}" & chr( 13 ) & chr( 10 ) & "B";
+					var tokens = variables.tokenizer.tokenize( template );
+
+					expect( tokens ).toHaveLength( 3 );
+					expect( tokens[ 1 ].value ).toBe( "A" & chr( 13 ) & chr( 10 ) );
+					expect( tokens[ 2 ].type ).toBe( "comment" );
 					expect( tokens[ 3 ].value ).toBe( "B" );
 				} );
 

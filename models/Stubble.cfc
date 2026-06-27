@@ -388,38 +388,35 @@ component displayname="Stubble" singleton {
 			parts = variables._parser.buildNameParts(arguments.name);
 		}
 
-		if (arrayLen(parts) == 1) {
-			for (var i = stackCount; i >= 1; i--) {
-				var resolved = _resolvePath(stack[i], parts);
-				if (resolved.found) {
+		var partCount = arrayLen(parts);
+		for (var i = stackCount; i >= 1; i--) {
+			var resolved = _resolvePath(stack[i], parts, 1, 1);
+			if (resolved.found) {
+				if (partCount == 1) {
 					return resolved;
 				}
-			}
 
-			return { found: false, value: "" };
-		}
-
-		var firstPart = [parts[1]];
-		var remainingParts = arraySlice(parts, 2, arrayLen(parts) - 1);
-
-		for (var i = stackCount; i >= 1; i--) {
-			var resolved = _resolvePath(stack[i], firstPart);
-			if (resolved.found) {
 				if (isNull(resolved.value)) {
 					return { found: false, value: "" };
 				}
 
-				return _resolvePath(resolved.value, remainingParts);
+				return _resolvePath(resolved.value, parts, 2, partCount);
 			}
 		}
 
 		return { found: false, value: "" };
 	}
 
-	private struct function _resolvePath(required any context, required array parts) {
+	private struct function _resolvePath(
+		required any context,
+		required array parts,
+		numeric startIndex = 1,
+		numeric endIndex = 0
+	) {
 		var current = arguments.context;
+		var lastIndex = arguments.endIndex > 0 ? arguments.endIndex : arrayLen(arguments.parts);
 
-		for (var i = 1; i <= arrayLen(arguments.parts); i++) {
+		for (var i = arguments.startIndex; i <= lastIndex; i++) {
 			var key = arguments.parts[i];
 
 			if (isStruct(current) && structKeyExists(current, key)) {
@@ -546,13 +543,8 @@ component displayname="Stubble" singleton {
 			? arguments.lambdaFn()
 			: arguments.lambdaFn(arguments.contextStack[arrayLen(arguments.contextStack)]);
 
-		var rendered = _toString(result);
-		if (find("{{", rendered) == 0) {
-			return rendered;
-		}
-
-		return _renderWithStack(
-			rendered,
+		return _renderLambdaResult(
+			result,
 			arguments.contextStack,
 			arguments.partials,
 			"{{",
@@ -598,8 +590,26 @@ component displayname="Stubble" singleton {
 			result = arguments.lambdaFn(arguments.rawText, renderFn);
 		}
 
-		var rendered = _toString(result);
-		if (find("{{", rendered) == 0) {
+		return _renderLambdaResult(
+			result,
+			arguments.contextStack,
+			arguments.partials,
+			arguments.openDelimiter,
+			arguments.closeDelimiter,
+			arguments.blockOverrides
+		);
+	}
+
+	private string function _renderLambdaResult(
+		any result,
+		required array contextStack,
+		required struct partials,
+		required string openDelimiter,
+		required string closeDelimiter,
+		struct blockOverrides = {}
+	) {
+		var rendered = _toString(arguments.result);
+		if (find(arguments.openDelimiter, rendered) == 0) {
 			return rendered;
 		}
 

@@ -9,10 +9,10 @@ component displayname="Tokenizer" {
 		var totalLen = len(arguments.template);
 		var currentOpenDelimiter = arguments.openDelimiter;
 		var currentCloseDelimiter = arguments.closeDelimiter;
+		var openDelimiterLength = len(currentOpenDelimiter);
+		var closeDelimiterLength = len(currentCloseDelimiter);
 
 		while (pos <= totalLen) {
-			var openDelimiterLength = len(currentOpenDelimiter);
-			var closeDelimiterLength = len(currentCloseDelimiter);
 			var openPos = find(currentOpenDelimiter, arguments.template, pos);
 
 			if (openPos == 0) {
@@ -89,6 +89,8 @@ component displayname="Tokenizer" {
 					if (token.type == "set_delimiter") {
 						currentOpenDelimiter = token.openDelimiter;
 						currentCloseDelimiter = token.closeDelimiter;
+						openDelimiterLength = len(currentOpenDelimiter);
+						closeDelimiterLength = len(currentCloseDelimiter);
 					}
 					pos = standaloneContext.nextPos;
 					continue;
@@ -100,11 +102,13 @@ component displayname="Tokenizer" {
 			}
 
 			arrayAppend(tokens, token);
+			pos = closePos + closeDelimiterLength;
 			if (token.type == "set_delimiter") {
 				currentOpenDelimiter = token.openDelimiter;
 				currentCloseDelimiter = token.closeDelimiter;
+				openDelimiterLength = len(currentOpenDelimiter);
+				closeDelimiterLength = len(currentCloseDelimiter);
 			}
-			pos = closePos + closeDelimiterLength;
 		}
 
 		return tokens;
@@ -174,10 +178,17 @@ component displayname="Tokenizer" {
 	}
 
 	private boolean function _isStandaloneTokenType(required string tokenType) {
-		return arrayFind(
-			["comment", "partial", "section_start", "section_end", "inverted_start", "set_delimiter"],
-			arguments.tokenType
-		);
+		switch (arguments.tokenType) {
+			case "comment":
+			case "partial":
+			case "section_start":
+			case "section_end":
+			case "inverted_start":
+			case "set_delimiter":
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	private boolean function _isSetDelimiterTag(required string content) {
