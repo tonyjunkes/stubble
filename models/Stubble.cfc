@@ -6,7 +6,7 @@ component displayname="Stubble" singleton {
 	public Stubble function init(
 		Tokenizer tokenizer,
 		Parser parser,
-		TemplateCache cache
+		ITemplateCache cache
 	) {
 		if (!isNull(arguments.tokenizer)) {
 			variables._tokenizer = arguments.tokenizer;

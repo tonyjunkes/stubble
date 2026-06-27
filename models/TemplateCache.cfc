@@ -1,4 +1,4 @@
-component displayname="TemplateCache" {
+component displayname="TemplateCache" implements="ITemplateCache" {
 	variables._templateCache = {};
 	variables._cacheLinks = {};
 	variables._cacheHeadKey = "";
