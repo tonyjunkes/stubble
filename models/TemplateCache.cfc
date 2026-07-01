@@ -1,11 +1,11 @@
-component displayname="TemplateCache" {
+component displayname="TemplateCache" implements="ITemplateCache" {
 	variables._templateCache = {};
 	variables._cacheLinks = {};
 	variables._cacheHeadKey = "";
 	variables._cacheTailKey = "";
 	variables._cacheMaxEntries = 200;
 	variables._cacheEnabled = true;
-	variables._cacheLockName = "Stubble.TemplateCache";
+	variables._cacheLockName = "Stubble.TemplateCache." & replace(createUUID(), "-", "", "all");
 
 	public void function configure(
 		boolean enabled = true,
@@ -52,12 +52,13 @@ component displayname="TemplateCache" {
 		var hasCached = false;
 		var cacheEnabled = false;
 
-		lock name=variables._cacheLockName type="readonly" timeout="5" {
+		lock name=variables._cacheLockName type="exclusive" timeout="5" {
 			cacheEnabled = variables._cacheEnabled;
 			if (cacheEnabled) {
 				hasCached = structKeyExists(variables._templateCache, cacheKey);
 				if (hasCached) {
 					cachedAst = variables._templateCache[cacheKey];
+					_touchKey(cacheKey);
 				}
 			}
 		}
@@ -67,18 +68,15 @@ component displayname="TemplateCache" {
 		}
 
 		if (hasCached) {
-			lock name=variables._cacheLockName type="exclusive" timeout="5" {
-				if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
-					_touchKey(cacheKey);
-				}
-			}
 			return cachedAst;
 		}
 
 		var ast = arguments.parseFn(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
 		lock name=variables._cacheLockName type="exclusive" timeout="5" {
 			if (variables._cacheEnabled) {
-				if (!structKeyExists(variables._templateCache, cacheKey)) {
+				if (structKeyExists(variables._templateCache, cacheKey)) {
+					ast = variables._templateCache[cacheKey];
+				} else {
 					variables._templateCache[cacheKey] = ast;
 				}
 

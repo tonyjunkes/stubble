@@ -120,6 +120,20 @@ component extends="testbox.system.BaseSpec" {
 				expect( output ).toBe( "<-{{planet}} => Earth->" );
 			} );
 
+			it( "Section - Alternate Delimiters Only: Lambda results should parse when they contain only the current delimiters.", function(){
+				var output = variables.stubble.render(
+					"{{= | | =}}<|##lambda|ignored|/lambda|>",
+					{
+						planet: "Earth",
+						lambda: function( text ){
+							return "|planet|";
+						}
+					}
+				);
+
+				expect( output ).toBe( "<Earth>" );
+			} );
+
 			it( "Section - Multiple Calls: Lambdas used for sections should not be cached.", function(){
 				var output = variables.stubble.render(
 					"{{##lambda}}FILE{{/lambda}} != {{##lambda}}LINE{{/lambda}}",

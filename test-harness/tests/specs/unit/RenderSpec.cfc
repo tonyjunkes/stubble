@@ -42,6 +42,29 @@ component extends="testbox.system.BaseSpec" {
 				expect( output ).toBe( "Ada|Linus" );
 			} );
 
+			it( "does not fall back to a parent context after resolving the first dotted-name segment", function(){
+				var output = variables.stubble.render(
+					"{{##items}}[{{user.name}}]{{/items}}",
+					{
+						user: { name: "Parent" },
+						items: [
+							{ user: {} }
+						]
+					}
+				);
+
+				expect( output ).toBe( "[]" );
+			} );
+
+			it( "returns empty output when a nested dotted-name segment is missing", function(){
+				var output = variables.stubble.render(
+					"{{person.address.city}}",
+					{ person: { address: {} } }
+				);
+
+				expect( output ).toBe( "" );
+			} );
+
 			it( "resolves values from CFC objects via dynamic path lookup", function(){
 				var person = createObject( "component", "tests.resources.DynamicLookupFixture" )
 					.init( "Ada", "Architect" );

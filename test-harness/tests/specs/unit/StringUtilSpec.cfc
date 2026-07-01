@@ -37,6 +37,11 @@ component extends="testbox.system.BaseSpec" {
 					// position 5 is 'c', nearest preceding LF is at position 4
 					expect( variables.su.getLineStartPos( template, 5 ) ).toBe( 5 );
 				} );
+
+				it( "finds the line start after a long prefix without changing position semantics", function(){
+					var template = repeatString( "x", 10000 ) & chr( 13 ) & chr( 10 ) & "tag";
+					expect( variables.su.getLineStartPos( template, 10004 ) ).toBe( 10003 );
+				} );
 			} );
 
 			describe( "findLastPosition()", function(){

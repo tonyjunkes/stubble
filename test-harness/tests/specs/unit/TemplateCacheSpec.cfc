@@ -101,16 +101,21 @@ component extends="testbox.system.BaseSpec" {
 					expect( callCount ).toBe( 2 );
 				} );
 
-					it( "does not repopulate the cache when disabled during an in-flight parse", function(){
-						var gateLockName = "TemplateCacheSpec.parseGate." & replace( createUUID(), "-", "", "all" );
-						var threadName = "templateCacheDisableRace_" & getTickCount();
+				it( "returns the canonical cached AST when concurrent misses race", function(){
+					var gateLockName = "TemplateCacheSpec.missGate." & replace( createUUID(), "-", "", "all" );
+					var threadNames = [];
 
-						lock name=gateLockName type="exclusive" timeout="5" {
+					lock name=gateLockName type="exclusive" timeout="5" {
+						for ( var i = 1; i <= 2; i++ ) {
+							var threadName = "templateCacheMissRace_#i#_#getTickCount()#";
+							arrayAppend( threadNames, threadName );
+
 							thread
 								action       = "run"
 								name         = threadName
 								cache        = variables.cache
 								gateLockName = gateLockName
+								marker       = "parsed-#i#"
 							{
 								thread.hadError = false;
 								thread.parseStarted = false;
@@ -118,13 +123,13 @@ component extends="testbox.system.BaseSpec" {
 
 								try {
 									thread.result = attributes.cache.getOrSet(
-										"hello",
+										"shared",
 										"{{",
 										"}}",
 										function( t, o, c ){
 											thread.parseStarted = true;
 											lock name=attributes.gateLockName type="exclusive" timeout="5" {
-												return [ { type: "text", value: t } ];
+												return [ { type: "text", value: attributes.marker } ];
 											}
 										}
 									);
@@ -133,56 +138,133 @@ component extends="testbox.system.BaseSpec" {
 									thread.errorMessage = e.message;
 								}
 							};
-
-							var deadline = getTickCount() + 5000;
-							var parseStarted = false;
-
-							while ( getTickCount() < deadline ) {
-								if (
-									structKeyExists( cfthread, threadName ) &&
-									structKeyExists( cfthread[ threadName ], "parseStarted" ) &&
-									cfthread[ threadName ].parseStarted
-								) {
-									parseStarted = true;
-									break;
-								}
-
-								sleep( 25 );
-							}
-
-							expect( parseStarted ).toBeTrue();
-							variables.cache.configure( enabled = false );
 						}
 
-						thread action = "join" name = threadName;
+						var deadline = getTickCount() + 5000;
+						var startedCount = 0;
 
-						expect( cfthread[ threadName ].hadError ).toBeFalse();
-						expect( arrayLen( cfthread[ threadName ].result ) ).toBe( 1 );
-						expect( cfthread[ threadName ].result[ 1 ].type ).toBe( "text" );
-						expect( cfthread[ threadName ].result[ 1 ].value ).toBe( "hello" );
+						while ( getTickCount() < deadline ) {
+							startedCount = 0;
+							for ( var currentThreadName in threadNames ) {
+								if (
+									structKeyExists( cfthread, currentThreadName ) &&
+									structKeyExists( cfthread[ currentThreadName ], "parseStarted" ) &&
+									cfthread[ currentThreadName ].parseStarted
+								) {
+									startedCount++;
+								}
+							}
 
-						var stats = variables.cache.getStats();
-						expect( stats.enabled ).toBeFalse();
-						expect( stats.currentEntries ).toBe( 0 );
+							if ( startedCount == 2 ) {
+								break;
+							}
 
-						variables.cache.configure( enabled = true );
+							sleep( 25 );
+						}
 
-						var replayParseCount = 0;
-						var replayedResult = variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
-							replayParseCount++;
-							return [ { type: "text", value: t } ];
-						} );
+						expect( startedCount ).toBe( 2 );
+					}
 
-						variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
-							replayParseCount++;
-							return [ { type: "text", value: t } ];
-						} );
+					thread action = "join" name = arrayToList( threadNames );
 
-						expect( arrayLen( replayedResult ) ).toBe( 1 );
-						expect( replayedResult[ 1 ].value ).toBe( "hello" );
-						expect( replayParseCount ).toBe( 1 );
-						expect( variables.cache.getStats().currentEntries ).toBe( 1 );
+					expect( cfthread[ threadNames[ 1 ] ].hadError ).toBeFalse();
+					expect( cfthread[ threadNames[ 2 ] ].hadError ).toBeFalse();
+					expect( cfthread[ threadNames[ 1 ] ].result[ 1 ].value )
+						.toBe( cfthread[ threadNames[ 2 ] ].result[ 1 ].value );
+
+					var replayParseCount = 0;
+					var replayedResult = variables.cache.getOrSet( "shared", "{{", "}}", function( t, o, c ){
+						replayParseCount++;
+						return [ { type: "text", value: "unexpected" } ];
 					} );
+
+					expect( replayParseCount ).toBe( 0 );
+					expect( replayedResult[ 1 ].value ).toBe( cfthread[ threadNames[ 1 ] ].result[ 1 ].value );
+					expect( variables.cache.getStats().currentEntries ).toBe( 1 );
+				} );
+
+				it( "does not repopulate the cache when disabled during an in-flight parse", function(){
+					var gateLockName = "TemplateCacheSpec.parseGate." & replace( createUUID(), "-", "", "all" );
+					var threadName = "templateCacheDisableRace_" & getTickCount();
+
+					lock name=gateLockName type="exclusive" timeout="5" {
+						thread
+							action       = "run"
+							name         = threadName
+							cache        = variables.cache
+							gateLockName = gateLockName
+						{
+							thread.hadError = false;
+							thread.parseStarted = false;
+							thread.result = [];
+
+							try {
+								thread.result = attributes.cache.getOrSet(
+									"hello",
+									"{{",
+									"}}",
+									function( t, o, c ){
+										thread.parseStarted = true;
+										lock name=attributes.gateLockName type="exclusive" timeout="5" {
+											return [ { type: "text", value: t } ];
+										}
+									}
+								);
+							} catch ( any e ) {
+								thread.hadError = true;
+								thread.errorMessage = e.message;
+							}
+						};
+
+						var deadline = getTickCount() + 5000;
+						var parseStarted = false;
+
+						while ( getTickCount() < deadline ) {
+							if (
+								structKeyExists( cfthread, threadName ) &&
+								structKeyExists( cfthread[ threadName ], "parseStarted" ) &&
+								cfthread[ threadName ].parseStarted
+							) {
+								parseStarted = true;
+								break;
+							}
+
+							sleep( 25 );
+						}
+
+						expect( parseStarted ).toBeTrue();
+						variables.cache.configure( enabled = false );
+					}
+
+					thread action = "join" name = threadName;
+
+					expect( cfthread[ threadName ].hadError ).toBeFalse();
+					expect( arrayLen( cfthread[ threadName ].result ) ).toBe( 1 );
+					expect( cfthread[ threadName ].result[ 1 ].type ).toBe( "text" );
+					expect( cfthread[ threadName ].result[ 1 ].value ).toBe( "hello" );
+
+					var stats = variables.cache.getStats();
+					expect( stats.enabled ).toBeFalse();
+					expect( stats.currentEntries ).toBe( 0 );
+
+					variables.cache.configure( enabled = true );
+
+					var replayParseCount = 0;
+					var replayedResult = variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
+						replayParseCount++;
+						return [ { type: "text", value: t } ];
+					} );
+
+					variables.cache.getOrSet( "hello", "{{", "}}", function( t, o, c ){
+						replayParseCount++;
+						return [ { type: "text", value: t } ];
+					} );
+
+					expect( arrayLen( replayedResult ) ).toBe( 1 );
+					expect( replayedResult[ 1 ].value ).toBe( "hello" );
+					expect( replayParseCount ).toBe( 1 );
+					expect( variables.cache.getStats().currentEntries ).toBe( 1 );
+				} );
 
 				it( "differentiates entries by template content", function(){
 					var parseFn = function( t, o, c ){ return [ t ]; };

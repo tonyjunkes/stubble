@@ -86,6 +86,16 @@ component extends="testbox.system.BaseSpec" {
 				var stats = variables.stubble.getCacheStats();
 				expect( stats.currentEntries ).toBe( 0 );
 			} );
+
+			it( "accepts a custom ITemplateCache implementation via init()", function(){
+				var mockCache = createObject( "component", "tests.resources.MockTemplateCache" );
+				var stubble = createObject( "component", "models.Stubble" ).init( cache = mockCache );
+
+				stubble.render( "Hello {{name}}", { name: "Ada" } );
+				stubble.render( "Hello {{name}}", { name: "Linus" } );
+
+				expect( mockCache.getCallCount() ).toBe( 2 );
+			} );
 		} );
 	}
 }
