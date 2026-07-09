@@ -114,6 +114,7 @@ component extends="testbox.system.BaseSpec" {
 							{
 								thread.hadError = false;
 								thread.parseStarted = false;
+								thread.completed = false;
 								thread.result = [];
 
 								try {
@@ -131,6 +132,8 @@ component extends="testbox.system.BaseSpec" {
 								} catch ( any e ) {
 									thread.hadError = true;
 									thread.errorMessage = e.message;
+								} finally {
+									thread.completed = true;
 								}
 							};
 
@@ -154,8 +157,10 @@ component extends="testbox.system.BaseSpec" {
 							variables.cache.configure( enabled = false );
 						}
 
-						thread action = "join" name = threadName;
+						thread action = "join" name = threadName timeout = 10000;
 
+						expect( structKeyExists( cfthread[ threadName ], "completed" ) && cfthread[ threadName ].completed )
+							.toBeTrue( "Thread did not complete: #threadName#" );
 						expect( cfthread[ threadName ].hadError ).toBeFalse();
 						expect( arrayLen( cfthread[ threadName ].result ) ).toBe( 1 );
 						expect( cfthread[ threadName ].result[ 1 ].type ).toBe( "text" );

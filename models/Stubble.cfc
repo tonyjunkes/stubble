@@ -2,6 +2,7 @@ component displayname="Stubble" singleton {
 	variables._tokenizer = new Tokenizer();
 	variables._parser = new Parser();
 	variables._cache = new TemplateCache();
+	variables._contextResolver = new ContextResolver();
 
 	public Stubble function init(
 		Tokenizer tokenizer,
@@ -37,8 +38,8 @@ component displayname="Stubble" singleton {
 
 	public string function render(required string template, any view = {}, struct partials = {}) {
 		var ast = _getParsedTemplate(arguments.template);
-		var contextStack = [arguments.view];
-		return _renderNodes(ast, contextStack, arguments.partials, {});
+		var state = _newRenderState([arguments.view], arguments.partials, {});
+		return _renderNodes(ast, state);
 	}
 
 	public void function configureCache(boolean enabled = true, numeric maxEntries = 200) {
@@ -55,12 +56,19 @@ component displayname="Stubble" singleton {
 
 	// --- Rendering ---
 
-	private string function _renderNodes(
-		required array nodes,
+	private struct function _newRenderState(
 		required array contextStack,
 		required struct partials,
-		struct blockOverrides = {}
+		required struct blockOverrides
 	) {
+		return {
+			contextStack: arguments.contextStack,
+			partials: arguments.partials,
+			blockOverrides: arguments.blockOverrides
+		};
+	}
+
+	private string function _renderNodes(required array nodes, required struct state) {
 		var outputChunks = [];
 		var nodeCount = arrayLen(arguments.nodes);
 
@@ -74,19 +82,14 @@ component displayname="Stubble" singleton {
 
 				case "variable":
 				case "unescaped":
-					var lookup = _lookup(node.name, arguments.contextStack, node.nameParts);
+					var lookup = variables._contextResolver.lookup(node.name, arguments.state.contextStack, node.nameParts);
 					if (!lookup.found) {
 						break;
 					}
 
 					var value = lookup.value;
 					if (isCustomFunction(value)) {
-						value = _invokeVariableLambda(
-							value,
-							arguments.contextStack,
-							arguments.partials,
-							arguments.blockOverrides
-						);
+						value = _invokeVariableLambda(value, arguments.state);
 					}
 
 					var renderedValue = _toString(value);
@@ -98,64 +101,34 @@ component displayname="Stubble" singleton {
 					break;
 
 				case "partial":
-					var resolvedPartialName = _resolvePartialName(node.name, arguments.contextStack);
-					if (resolvedPartialName.found && structKeyExists(arguments.partials, resolvedPartialName.name)) {
-						var partialTemplate = arguments.partials[resolvedPartialName.name];
-						if (isCustomFunction(partialTemplate)) {
-							partialTemplate = partialTemplate();
-						}
-
-						var renderedPartialTemplate = _toString(partialTemplate);
+					var resolvedPartial = _resolveTemplate(node.name, arguments.state);
+					if (resolvedPartial.found) {
+						var partialTemplate = resolvedPartial.template;
 						if (len(node.indent)) {
-							renderedPartialTemplate = _indentPartialTemplate(renderedPartialTemplate, node.indent);
+							partialTemplate = _indentPartialTemplate(partialTemplate, node.indent);
 						}
 
-						arrayAppend(outputChunks, _renderWithStack(
-							renderedPartialTemplate,
-							arguments.contextStack,
-							arguments.partials,
+						arrayAppend(outputChunks, _renderTemplate(
+							partialTemplate,
+							arguments.state,
+							arguments.state.blockOverrides,
 							"{{",
-							"}}",
-							arguments.blockOverrides
+							"}}"
 						));
 					}
 					break;
 
 				case "parent":
-					arrayAppend(
-						outputChunks,
-						_renderParent(
-							node,
-							arguments.contextStack,
-							arguments.partials,
-							arguments.blockOverrides
-						)
-					);
+					arrayAppend(outputChunks, _renderParent(node, arguments.state));
 					break;
 
 				case "block":
-					arrayAppend(
-						outputChunks,
-						_renderBlock(
-							node,
-							arguments.contextStack,
-							arguments.partials,
-							arguments.blockOverrides
-						)
-					);
+					arrayAppend(outputChunks, _renderBlock(node, arguments.state));
 					break;
 
 				case "section":
 				case "inverted":
-					arrayAppend(
-						outputChunks,
-						_renderSection(
-							node,
-							arguments.contextStack,
-							arguments.partials,
-							arguments.blockOverrides
-						)
-					);
+					arrayAppend(outputChunks, _renderSection(node, arguments.state));
 					break;
 
 				default:
@@ -166,7 +139,7 @@ component displayname="Stubble" singleton {
 		return arrayToList(outputChunks, "");
 	}
 
-	private struct function _resolvePartialName(required string partialName, required array contextStack) {
+	private struct function _resolvePartialName(required string partialName, required struct state) {
 		var trimmedPartialName = trim(arguments.partialName);
 		if (!(len(trimmedPartialName) > 0 && left(trimmedPartialName, 1) == "*")) {
 			return {
@@ -180,11 +153,7 @@ component displayname="Stubble" singleton {
 			return { found: false, name: "" };
 		}
 
-		var lookup = _lookup(
-			dynamicName,
-			arguments.contextStack,
-			variables._parser.buildNameParts(dynamicName)
-		);
+		var lookup = variables._contextResolver.lookup(dynamicName, arguments.state.contextStack);
 		if (!lookup.found || isNull(lookup.value)) {
 			return { found: false, name: "" };
 		}
@@ -195,24 +164,36 @@ component displayname="Stubble" singleton {
 		};
 	}
 
-	private string function _renderSection(
-		required struct node,
-		required array contextStack,
-		required struct partials,
-		struct blockOverrides = {}
-	) {
-		var lookup = _lookup(arguments.node.name, arguments.contextStack, arguments.node.nameParts);
+	private struct function _resolveTemplate(required string templateName, required struct state) {
+		var resolvedName = _resolvePartialName(arguments.templateName, arguments.state);
+		if (!resolvedName.found || !structKeyExists(arguments.state.partials, resolvedName.name)) {
+			return { found: false, name: "", template: "" };
+		}
+
+		var templateValue = arguments.state.partials[resolvedName.name];
+		if (isCustomFunction(templateValue)) {
+			templateValue = templateValue();
+		}
+
+		return {
+			found: true,
+			name: resolvedName.name,
+			template: _toString(templateValue)
+		};
+	}
+
+	private string function _renderSection(required struct node, required struct state) {
+		var lookup = variables._contextResolver.lookup(
+			arguments.node.name,
+			arguments.state.contextStack,
+			arguments.node.nameParts
+		);
 		var found = lookup.found;
 		var value = found ? lookup.value : "";
 		var truthy = found && _isTruthy(value);
 
 		if (arguments.node.type == "inverted") {
-			return truthy ? "" : _renderNodes(
-				arguments.node.children,
-				arguments.contextStack,
-				arguments.partials,
-				arguments.blockOverrides
-			);
+			return truthy ? "" : _renderNodes(arguments.node.children, arguments.state);
 		}
 
 		if (!found) {
@@ -223,9 +204,7 @@ component displayname="Stubble" singleton {
 			return _invokeSectionLambda(
 				value,
 				arguments.node.rawText,
-				arguments.contextStack,
-				arguments.partials,
-				arguments.blockOverrides,
+				arguments.state,
 				arguments.node.renderOpenDelimiter,
 				arguments.node.renderCloseDelimiter
 			);
@@ -239,108 +218,77 @@ component displayname="Stubble" singleton {
 
 			var arrayOutputChunks = [];
 			for (var i = 1; i <= valueCount; i++) {
-				arrayAppend(
-					arrayOutputChunks,
-					_withContext(
-						arguments.contextStack,
-						value[i],
-						arguments.node,
-						arguments.partials,
-						arguments.blockOverrides
-					)
-				);
+				arrayAppend(arrayOutputChunks, _withContext(arguments.state, value[i], arguments.node));
 			}
 			return arrayToList(arrayOutputChunks, "");
 		}
 
 		if (isStruct(value) || isObject(value)) {
-			return _withContext(
-				arguments.contextStack,
-				value,
-				arguments.node,
-				arguments.partials,
-				arguments.blockOverrides
-			);
+			return _withContext(arguments.state, value, arguments.node);
 		}
 
 		if (!truthy) {
 			return "";
 		}
 
-		return _withContext(
-			arguments.contextStack,
-			value,
-			arguments.node,
-			arguments.partials,
-			arguments.blockOverrides
-		);
+		return _withContext(arguments.state, value, arguments.node);
 	}
 
-	private string function _withContext(
-		required array contextStack,
-		required any contextValue,
-		required struct node,
-		required struct partials,
-		required struct blockOverrides
-	) {
-		arrayAppend(arguments.contextStack, arguments.contextValue);
+	private string function _withContext(required struct state, required any contextValue, required struct node) {
+		arrayAppend(arguments.state.contextStack, arguments.contextValue);
 		try {
-			return _renderNodes(
-				arguments.node.children,
-				arguments.contextStack,
-				arguments.partials,
-				arguments.blockOverrides
-			);
+			return _renderNodes(arguments.node.children, arguments.state);
 		} finally {
-			arrayDeleteAt(arguments.contextStack, arrayLen(arguments.contextStack));
+			arrayDeleteAt(arguments.state.contextStack, arrayLen(arguments.state.contextStack));
 		}
 	}
 
-	private string function _renderParent(
-		required struct node,
-		required array contextStack,
-		required struct partials,
-		struct blockOverrides = {}
-	) {
-		var resolvedParentName = _resolvePartialName(arguments.node.name, arguments.contextStack);
-		if (!resolvedParentName.found || !structKeyExists(arguments.partials, resolvedParentName.name)) {
+	private string function _renderParent(required struct node, required struct state) {
+		var resolvedParent = _resolveTemplate(arguments.node.name, arguments.state);
+		if (!resolvedParent.found) {
 			return "";
 		}
 
-		var parentTemplate = arguments.partials[resolvedParentName.name];
-		if (isCustomFunction(parentTemplate)) {
-			parentTemplate = parentTemplate();
-		}
-
 		var effectiveOverrides = _collectBlockOverrides(arguments.node.children);
-		if (structCount(arguments.blockOverrides)) {
-			structAppend(effectiveOverrides, arguments.blockOverrides, true);
+		if (structCount(arguments.state.blockOverrides)) {
+			structAppend(effectiveOverrides, arguments.state.blockOverrides, true);
 		}
 
-		parentTemplate = _toString(parentTemplate);
+		var parentTemplate = resolvedParent.template;
 		if (len(arguments.node.expansionIndent)) {
 			parentTemplate = _indentPartialTemplate(parentTemplate, arguments.node.expansionIndent);
 		}
 
-		return _renderWithStack(
+		return _renderTemplate(
 			parentTemplate,
-			arguments.contextStack,
-			arguments.partials,
+			arguments.state,
+			effectiveOverrides,
 			"{{",
-			"}}",
-			effectiveOverrides
+			"}}"
 		);
 	}
 
-	private string function _renderBlock(
-		required struct node,
-		required array contextStack,
-		required struct partials,
-		struct blockOverrides = {}
-	) {
-		var sourceNode = structKeyExists(arguments.blockOverrides, arguments.node.name)
-			? arguments.blockOverrides[arguments.node.name]
+	private string function _renderBlock(required struct node, required struct state) {
+		var sourceNode = structKeyExists(arguments.state.blockOverrides, arguments.node.name)
+			? arguments.state.blockOverrides[arguments.node.name]
 			: arguments.node;
+
+		if (
+			!sourceNode.stripLeadingLineBreak &&
+			!len(sourceNode.definitionIndent) &&
+			!len(arguments.node.expansionIndent)
+		) {
+			var renderedChildren = _renderNodes(sourceNode.children, arguments.state);
+			if (
+				len(arguments.node.trailingLineBreak) &&
+				len(renderedChildren) &&
+				!StringUtil::endsWithLineBreak(renderedChildren)
+			) {
+				renderedChildren &= arguments.node.trailingLineBreak;
+			}
+
+			return renderedChildren;
+		}
 
 		var blockTemplate = StringUtil::normalizeBlockSourceText(sourceNode.rawText, sourceNode.stripLeadingLineBreak);
 		if (len(sourceNode.definitionIndent)) {
@@ -351,177 +299,18 @@ component displayname="Stubble" singleton {
 			blockTemplate = _indentPartialTemplate(blockTemplate, arguments.node.expansionIndent);
 		}
 
-		var renderedBlock = _renderWithStack(
+		var renderedBlock = _renderTemplate(
 			blockTemplate,
-			arguments.contextStack,
-			arguments.partials,
+			arguments.state,
+			arguments.state.blockOverrides,
 			"{{",
-			"}}",
-			arguments.blockOverrides
+			"}}"
 		);
 		if (len(arguments.node.trailingLineBreak) && len(renderedBlock) && !StringUtil::endsWithLineBreak(renderedBlock)) {
 			renderedBlock &= arguments.node.trailingLineBreak;
 		}
 
 		return renderedBlock;
-	}
-
-	// --- Context Lookup ---
-
-	private struct function _lookup(
-		required string name,
-		required array contextStack,
-		array nameParts = []
-	) {
-		var stack = arguments.contextStack;
-		var stackCount = arrayLen(stack);
-
-		if (arguments.name == ".") {
-			return {
-				found: stackCount > 0,
-				value: stackCount > 0 ? stack[stackCount] : ""
-			};
-		}
-
-		var parts = arguments.nameParts;
-		if (arrayLen(parts) == 0) {
-			parts = variables._parser.buildNameParts(arguments.name);
-		}
-
-		if (arrayLen(parts) == 1) {
-			for (var i = stackCount; i >= 1; i--) {
-				var resolved = _resolvePath(stack[i], parts);
-				if (resolved.found) {
-					return resolved;
-				}
-			}
-
-			return { found: false, value: "" };
-		}
-
-		var firstPart = [parts[1]];
-		var remainingParts = arraySlice(parts, 2, arrayLen(parts) - 1);
-
-		for (var i = stackCount; i >= 1; i--) {
-			var resolved = _resolvePath(stack[i], firstPart);
-			if (resolved.found) {
-				if (isNull(resolved.value)) {
-					return { found: false, value: "" };
-				}
-
-				return _resolvePath(resolved.value, remainingParts);
-			}
-		}
-
-		return { found: false, value: "" };
-	}
-
-	private struct function _resolvePath(required any context, required array parts) {
-		var current = arguments.context;
-
-		for (var i = 1; i <= arrayLen(arguments.parts); i++) {
-			var key = arguments.parts[i];
-
-			if (isStruct(current) && structKeyExists(current, key)) {
-				current = current[key];
-				continue;
-			}
-
-			if (isArray(current) && isNumeric(key)) {
-				var index = val(key);
-				if (index >= 1 && index <= arrayLen(current)) {
-					current = current[index];
-					continue;
-				}
-			}
-
-			var dynamicStep = _resolveDynamicPathStep(current, key);
-			if (dynamicStep.found) {
-				current = dynamicStep.value;
-				continue;
-			}
-
-			return { found: false, value: "" };
-		}
-
-		return { found: true, value: current };
-	}
-
-	private struct function _resolveDynamicPathStep(required any current, required string key) {
-		var defaultResult = { found: false, value: "" };
-
-		if (isSimpleValue(arguments.current) || isArray(arguments.current) || isStruct(arguments.current)) {
-			return defaultResult;
-		}
-
-		if (!isObject(arguments.current)) {
-			return defaultResult;
-		}
-
-		if (
-			!structKeyExists(arguments.current, arguments.key) &&
-			!_hasDynamicObjectAccessor(arguments.current, arguments.key)
-		) {
-			return defaultResult;
-		}
-
-		return { found: true, value: arguments.current[arguments.key] };
-	}
-
-	private boolean function _hasDynamicObjectAccessor(required any current, required string key) {
-		var accessorMethodNames = _buildAccessorMethodNames(arguments.key);
-		var metadata = getMetadata(arguments.current);
-
-		if (isStruct(metadata)) {
-			if (structKeyExists(metadata, "functions") && isArray(metadata.functions)) {
-				for (var fn in metadata.functions) {
-					if (
-						isStruct(fn) &&
-						structKeyExists(fn, "name") &&
-						(
-							compareNoCase(fn.name, accessorMethodNames[1]) == 0 ||
-							compareNoCase(fn.name, accessorMethodNames[2]) == 0
-						)
-					) {
-						var parameters = structKeyExists(fn, "parameters") && isArray(fn.parameters) ? fn.parameters : [];
-						if (arrayLen(parameters) == 0) {
-							return true;
-						}
-					}
-				}
-			}
-		}
-
-		try {
-			var methods = arguments.current.getClass().getMethods();
-			for (var method in methods) {
-				var methodName = method.getName();
-				if (
-					(
-						compareNoCase(methodName, accessorMethodNames[1]) == 0 ||
-						compareNoCase(methodName, accessorMethodNames[2]) == 0
-					) &&
-					method.getParameterCount() == 0
-				) {
-					return true;
-				}
-			}
-
-			arguments.current.getClass().getField(arguments.key);
-			return true;
-		} catch (any e) {
-			return false;
-		}
-	}
-
-	private array function _buildAccessorMethodNames(required string key) {
-		var normalizedKey = trim(arguments.key);
-		if (!len(normalizedKey)) {
-			return ["", ""];
-		}
-
-		var accessorSuffix = uCase(left(normalizedKey, 1)) & mid(normalizedKey, 2, len(normalizedKey) - 1);
-		return ["get" & accessorSuffix, "is" & accessorSuffix];
 	}
 
 	// --- Lambda Handling ---
@@ -535,55 +324,33 @@ component displayname="Stubble" singleton {
 		return 0;
 	}
 
-	private string function _invokeVariableLambda(
-		required function lambdaFn,
-		required array contextStack,
-		required struct partials,
-		struct blockOverrides = {}
-	) {
+	private string function _invokeVariableLambda(required function lambdaFn, required struct state) {
 		var arity = _getFunctionArity(arguments.lambdaFn);
 		var result = arity <= 0
 			? arguments.lambdaFn()
-			: arguments.lambdaFn(arguments.contextStack[arrayLen(arguments.contextStack)]);
+			: arguments.lambdaFn(arguments.state.contextStack[arrayLen(arguments.state.contextStack)]);
 
-		var rendered = _toString(result);
-		if (find("{{", rendered) == 0) {
-			return rendered;
-		}
-
-		return _renderWithStack(
-			rendered,
-			arguments.contextStack,
-			arguments.partials,
-			"{{",
-			"}}",
-			arguments.blockOverrides
-		);
+		return _renderLambdaResult(result, arguments.state, "{{", "}}");
 	}
 
 	private string function _invokeSectionLambda(
 		required function lambdaFn,
 		required string rawText,
-		required array contextStack,
-		required struct partials,
-		struct blockOverrides = {},
+		required struct state,
 		required string openDelimiter,
 		required string closeDelimiter
 	) {
-		var sectionContextStack = arguments.contextStack;
-		var sectionPartials = arguments.partials;
-		var sectionBlockOverrides = arguments.blockOverrides;
+		var sectionState = arguments.state;
 		var sectionOpenDelimiter = arguments.openDelimiter;
 		var sectionCloseDelimiter = arguments.closeDelimiter;
 
 		var renderFn = function(required string templateText) {
-			return _renderWithStack(
+			return _renderTemplate(
 				templateText,
-				sectionContextStack,
-				sectionPartials,
+				sectionState,
+				sectionState.blockOverrides,
 				sectionOpenDelimiter,
-				sectionCloseDelimiter,
-				sectionBlockOverrides
+				sectionCloseDelimiter
 			);
 		};
 
@@ -598,33 +365,50 @@ component displayname="Stubble" singleton {
 			result = arguments.lambdaFn(arguments.rawText, renderFn);
 		}
 
-		var rendered = _toString(result);
-		if (find("{{", rendered) == 0) {
+		return _renderLambdaResult(
+			result,
+			arguments.state,
+			arguments.openDelimiter,
+			arguments.closeDelimiter
+		);
+	}
+
+	private string function _renderLambdaResult(
+		any result,
+		required struct state,
+		required string openDelimiter,
+		required string closeDelimiter
+	) {
+		var rendered = _toString(arguments.result);
+		if (find(arguments.openDelimiter, rendered) == 0) {
 			return rendered;
 		}
 
-		return _renderWithStack(
+		return _renderTemplate(
 			rendered,
-			arguments.contextStack,
-			arguments.partials,
+			arguments.state,
+			arguments.state.blockOverrides,
 			arguments.openDelimiter,
-			arguments.closeDelimiter,
-			arguments.blockOverrides
+			arguments.closeDelimiter
 		);
 	}
 
 	// --- Template Processing ---
 
-	private string function _renderWithStack(
+	private string function _renderTemplate(
 		required string template,
-		required array contextStack,
-		required struct partials,
+		required struct state,
+		required struct blockOverrides,
 		string openDelimiter = "{{",
-		string closeDelimiter = "}}",
-		struct blockOverrides = {}
+		string closeDelimiter = "}}"
 	) {
 		var nestedAst = _getParsedTemplate(arguments.template, arguments.openDelimiter, arguments.closeDelimiter);
-		return _renderNodes(nestedAst, arguments.contextStack, arguments.partials, arguments.blockOverrides);
+		var nestedState = _newRenderState(
+			arguments.state.contextStack,
+			arguments.state.partials,
+			arguments.blockOverrides
+		);
+		return _renderNodes(nestedAst, nestedState);
 	}
 
 	private array function _getParsedTemplate(

@@ -1,6 +1,8 @@
 component displayname="StringUtil" {
 	public static numeric function getLineStartPos(required string template, required numeric position) {
-		var prefix = arguments.position > 1 ? left(arguments.template, arguments.position - 1) : "";
+		var prefix = arguments.position > 1
+			? left(arguments.template, min(arguments.position - 1, len(arguments.template)))
+			: "";
 		var lastLineFeed = findLastPosition(chr(10), prefix);
 		var lastCarriageReturn = findLastPosition(chr(13), prefix);
 
@@ -8,8 +10,20 @@ component displayname="StringUtil" {
 	}
 
 	public static numeric function findLastPosition(required string needle, required string haystack) {
-		var pos = arguments.haystack.lastIndexOf(arguments.needle);
-		return pos == -1 ? 0 : pos + 1;
+		var needleLength = len(arguments.needle);
+		if (needleLength == 0 || needleLength > len(arguments.haystack)) {
+			return 0;
+		}
+
+		var lastPosition = 0;
+		var nextPosition = find(arguments.needle, arguments.haystack, 1);
+
+		while (nextPosition > 0) {
+			lastPosition = nextPosition;
+			nextPosition = find(arguments.needle, arguments.haystack, nextPosition + needleLength);
+		}
+
+		return lastPosition;
 	}
 
 	public static numeric function findNextLineBreakPos(required string template, required numeric startPos) {
