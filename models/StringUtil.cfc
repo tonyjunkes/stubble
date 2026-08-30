@@ -20,7 +20,7 @@ component displayname="StringUtil" {
 
 		while (nextPosition > 0) {
 			lastPosition = nextPosition;
-			nextPosition = find(arguments.needle, arguments.haystack, nextPosition + needleLength);
+			nextPosition = find(arguments.needle, arguments.haystack, nextPosition + 1);
 		}
 
 		return lastPosition;

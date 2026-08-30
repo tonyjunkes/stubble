@@ -74,6 +74,10 @@ component extends="testbox.system.BaseSpec" {
 				it( "works with multi-character needles", function(){
 					expect( variables.su.findLastPosition( "ab", "zabzab" ) ).toBe( 5 );
 				} );
+
+				it( "finds the final overlapping multi-character match", function(){
+					expect( variables.su.findLastPosition( "aba", "ababa" ) ).toBe( 3 );
+				} );
 			} );
 
 			describe( "findNextLineBreakPos()", function(){
