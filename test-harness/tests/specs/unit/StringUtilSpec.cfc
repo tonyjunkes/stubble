@@ -37,6 +37,21 @@ component extends="testbox.system.BaseSpec" {
 					// position 5 is 'c', nearest preceding LF is at position 4
 					expect( variables.su.getLineStartPos( template, 5 ) ).toBe( 5 );
 				} );
+
+				it( "handles a position beyond the template length", function(){
+					var template = "a#chr( 10 )#bc";
+					expect( variables.su.getLineStartPos( template, 10 ) ).toBe( 3 );
+				} );
+
+				it( "returns the character after the nearest CRLF sequence", function(){
+					var template = "one#chr( 13 )##chr( 10 )#two#chr( 13 )##chr( 10 )#three";
+					expect( variables.su.getLineStartPos( template, 13 ) ).toBe( 11 );
+				} );
+
+				it( "returns 1 for positions before any line break", function(){
+					var template = "abc#chr( 10 )#def";
+					expect( variables.su.getLineStartPos( template, 3 ) ).toBe( 1 );
+				} );
 			} );
 
 			describe( "findLastPosition()", function(){
@@ -54,6 +69,14 @@ component extends="testbox.system.BaseSpec" {
 
 				it( "works with an empty haystack", function(){
 					expect( variables.su.findLastPosition( "x", "" ) ).toBe( 0 );
+				} );
+
+				it( "works with multi-character needles", function(){
+					expect( variables.su.findLastPosition( "ab", "zabzab" ) ).toBe( 5 );
+				} );
+
+				it( "finds the final overlapping multi-character match", function(){
+					expect( variables.su.findLastPosition( "aba", "ababa" ) ).toBe( 3 );
 				} );
 			} );
 

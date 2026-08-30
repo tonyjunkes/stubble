@@ -5,7 +5,7 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 	variables._cacheTailKey = "";
 	variables._cacheMaxEntries = 200;
 	variables._cacheEnabled = true;
-	variables._cacheLockName = "Stubble.TemplateCache";
+	variables._cacheLockName = "Stubble.TemplateCache." & replace(createUUID(), "-", "", "all");
 
 	public void function configure(
 		boolean enabled = true,
@@ -51,10 +51,14 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 		var cachedAst = [];
 		var hasCached = false;
 		var cacheEnabled = false;
+		var cacheEntryCount = 0;
+		var cacheMaxEntries = 0;
 
 		lock name=variables._cacheLockName type="readonly" timeout="5" {
 			cacheEnabled = variables._cacheEnabled;
+			cacheMaxEntries = variables._cacheMaxEntries;
 			if (cacheEnabled) {
+				cacheEntryCount = structCount(variables._templateCache);
 				hasCached = structKeyExists(variables._templateCache, cacheKey);
 				if (hasCached) {
 					cachedAst = variables._templateCache[cacheKey];
@@ -67,9 +71,11 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 		}
 
 		if (hasCached) {
-			lock name=variables._cacheLockName type="exclusive" timeout="5" {
-				if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
-					_touchKey(cacheKey);
+			if (cacheEntryCount >= cacheMaxEntries) {
+				lock name=variables._cacheLockName type="exclusive" timeout="5" {
+					if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
+						_touchKey(cacheKey);
+					}
 				}
 			}
 			return cachedAst;
@@ -109,41 +115,46 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 	}
 
 	private void function _touchKey(required string cacheKey) {
-		if (!structKeyExists(variables._templateCache, arguments.cacheKey)) {
-			return;
-		}
+		try {
+			if (!structKeyExists(variables._templateCache, arguments.cacheKey)) {
+				return;
+			}
 
-		if (!structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
-			variables._cacheLinks[arguments.cacheKey] = {
-				prev: variables._cacheTailKey,
-				next: ""
-			};
+			if (!structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
+				variables._cacheLinks[arguments.cacheKey] = {
+					prev: variables._cacheTailKey,
+					next: ""
+				};
+
+				_linkAtTail(arguments.cacheKey);
+				return;
+			}
+
+			if (variables._cacheTailKey == arguments.cacheKey) {
+				return;
+			}
+
+			var cacheLink = variables._cacheLinks[arguments.cacheKey];
+			var prevKey = structKeyExists(cacheLink, "prev") ? cacheLink.prev : "";
+			var nextKey = structKeyExists(cacheLink, "next") ? cacheLink.next : "";
+
+			if (len(prevKey) && structKeyExists(variables._cacheLinks, prevKey)) {
+				variables._cacheLinks[prevKey].next = nextKey;
+			} else {
+				variables._cacheHeadKey = nextKey;
+			}
+
+			if (len(nextKey) && structKeyExists(variables._cacheLinks, nextKey)) {
+				variables._cacheLinks[nextKey].prev = prevKey;
+			}
+
+			variables._cacheLinks[arguments.cacheKey].prev = variables._cacheTailKey;
+			variables._cacheLinks[arguments.cacheKey].next = "";
 
 			_linkAtTail(arguments.cacheKey);
-			return;
+		} catch (any e) {
+			_rebuildLinksFromCache();
 		}
-
-		if (variables._cacheTailKey == arguments.cacheKey) {
-			return;
-		}
-
-		var prevKey = variables._cacheLinks[arguments.cacheKey].prev;
-		var nextKey = variables._cacheLinks[arguments.cacheKey].next;
-
-		if (len(prevKey) && structKeyExists(variables._cacheLinks, prevKey)) {
-			variables._cacheLinks[prevKey].next = nextKey;
-		} else {
-			variables._cacheHeadKey = nextKey;
-		}
-
-		if (len(nextKey) && structKeyExists(variables._cacheLinks, nextKey)) {
-			variables._cacheLinks[nextKey].prev = prevKey;
-		}
-
-		variables._cacheLinks[arguments.cacheKey].prev = variables._cacheTailKey;
-		variables._cacheLinks[arguments.cacheKey].next = "";
-
-		_linkAtTail(arguments.cacheKey);
 	}
 
 	private void function _linkAtTail(required string cacheKey) {
@@ -157,22 +168,37 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 	}
 
 	private void function _removeKey(required string cacheKey) {
-		if (structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
-			var cacheLink = variables._cacheLinks[arguments.cacheKey];
+		try {
+			if (structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
+				var cacheLink = variables._cacheLinks[arguments.cacheKey];
+				var prevKey = structKeyExists(cacheLink, "prev") ? cacheLink.prev : "";
+				var nextKey = structKeyExists(cacheLink, "next") ? cacheLink.next : "";
 
-			if (len(cacheLink.prev) && structKeyExists(variables._cacheLinks, cacheLink.prev)) {
-				variables._cacheLinks[cacheLink.prev].next = cacheLink.next;
-			} else {
-				variables._cacheHeadKey = cacheLink.next;
+				if (len(prevKey) && structKeyExists(variables._cacheLinks, prevKey)) {
+					variables._cacheLinks[prevKey].next = nextKey;
+				} else {
+					variables._cacheHeadKey = nextKey;
+				}
+
+				if (len(nextKey) && structKeyExists(variables._cacheLinks, nextKey)) {
+					variables._cacheLinks[nextKey].prev = prevKey;
+				} else {
+					variables._cacheTailKey = prevKey;
+				}
+
+				structDelete(variables._cacheLinks, arguments.cacheKey);
 			}
-
-			if (len(cacheLink.next) && structKeyExists(variables._cacheLinks, cacheLink.next)) {
-				variables._cacheLinks[cacheLink.next].prev = cacheLink.prev;
-			} else {
-				variables._cacheTailKey = cacheLink.prev;
+		} catch (any e) {
+			if (structKeyExists(variables._cacheLinks, arguments.cacheKey)) {
+				structDelete(variables._cacheLinks, arguments.cacheKey);
 			}
-
-			structDelete(variables._cacheLinks, arguments.cacheKey);
+			if (structCount(variables._templateCache)) {
+				_rebuildLinksFromCache();
+			} else {
+				variables._cacheLinks = {};
+				variables._cacheHeadKey = "";
+				variables._cacheTailKey = "";
+			}
 		}
 
 		if (structKeyExists(variables._templateCache, arguments.cacheKey)) {
@@ -186,9 +212,46 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 		}
 	}
 
+	private void function _rebuildLinksFromCache() {
+		variables._cacheLinks = {};
+		variables._cacheHeadKey = "";
+		variables._cacheTailKey = "";
+
+		var cacheKeys = structKeyArray(variables._templateCache);
+		for (var i = 1; i <= arrayLen(cacheKeys); i++) {
+			var cacheKey = cacheKeys[i];
+			variables._cacheLinks[cacheKey] = {
+				prev: variables._cacheTailKey,
+				next: ""
+			};
+			_linkAtTail(cacheKey);
+		}
+	}
+
 	private void function _evictIfNeeded() {
-		while (structCount(variables._templateCache) > variables._cacheMaxEntries && len(variables._cacheHeadKey)) {
+		while (structCount(variables._templateCache) > variables._cacheMaxEntries) {
+			if (
+				!len(variables._cacheHeadKey) ||
+				!structKeyExists(variables._templateCache, variables._cacheHeadKey) ||
+				!structKeyExists(variables._cacheLinks, variables._cacheHeadKey)
+			) {
+				_rebuildLinksFromCache();
+			}
+
+			if (!len(variables._cacheHeadKey)) {
+				break;
+			}
+
+			var entryCountBeforeRemove = structCount(variables._templateCache);
 			_removeKey(variables._cacheHeadKey);
+
+			if (structCount(variables._templateCache) >= entryCountBeforeRemove) {
+				_rebuildLinksFromCache();
+				if (!len(variables._cacheHeadKey)) {
+					break;
+				}
+				_removeKey(variables._cacheHeadKey);
+			}
 		}
 	}
 }

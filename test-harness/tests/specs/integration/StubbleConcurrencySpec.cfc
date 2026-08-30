@@ -29,6 +29,7 @@ component extends="testbox.system.BaseSpec" {
 						iterations  = iterations
 					{
 						thread.hadError = false;
+						thread.completed = false;
 						thread.result   = "";
 
 						try {
@@ -45,17 +46,23 @@ component extends="testbox.system.BaseSpec" {
 						} catch ( any e ) {
 							thread.hadError     = true;
 							thread.errorMessage = e.message;
+						} finally {
+							thread.completed = true;
 						}
 					};
 				}
 
-				thread action = "join" name = arrayToList( threadNames );
+				thread action = "join" name = arrayToList( threadNames ) timeout = 10000;
 
 				for ( var i = 1; i <= arrayLen( threadNames ); i++ ) {
 					var thisThreadName = threadNames[ i ];
 					var expected       = "T" & i & "-" & iterations & ":N" & i & "-123";
 
-					expect( cfthread[ thisThreadName ].hadError ).toBeFalse();
+					expect( structKeyExists( cfthread, thisThreadName ) ).toBeTrue();
+					expect( structKeyExists( cfthread[ thisThreadName ], "completed" ) && cfthread[ thisThreadName ].completed )
+						.toBeTrue( "Thread did not complete: #thisThreadName#" );
+					expect( cfthread[ thisThreadName ].hadError )
+						.toBeFalse( structKeyExists( cfthread[ thisThreadName ], "errorMessage" ) ? cfthread[ thisThreadName ].errorMessage : "" );
 					expect( cfthread[ thisThreadName ].result ).toBe( expected );
 				}
 
@@ -83,11 +90,12 @@ component extends="testbox.system.BaseSpec" {
 					thread
 						action          = "run"
 						name            = renderThreadName
-						stubble         = stubble
+						stubble         = variables.stubble
 						threadIndex     = i
 						iterations      = renderIterations
 					{
 						thread.hadError = false;
+						thread.completed = false;
 						thread.result   = "";
 
 						try {
@@ -103,6 +111,8 @@ component extends="testbox.system.BaseSpec" {
 						} catch ( any e ) {
 							thread.hadError     = true;
 							thread.errorMessage = e.message;
+						} finally {
+							thread.completed = true;
 						}
 					};
 				}
@@ -119,6 +129,7 @@ component extends="testbox.system.BaseSpec" {
 						threadOrdinal = i
 					{
 						thread.hadError = false;
+						thread.completed = false;
 						thread.result   = "";
 
 						try {
@@ -131,25 +142,35 @@ component extends="testbox.system.BaseSpec" {
 						} catch ( any e ) {
 							thread.hadError     = true;
 							thread.errorMessage = e.message;
+						} finally {
+							thread.completed = true;
 						}
 					};
 				}
 
-				thread action = "join" name = arrayToList( renderThreadNames );
-				thread action = "join" name = arrayToList( toggleThreadNames );
+				thread action = "join" name = arrayToList( renderThreadNames ) timeout = 10000;
+				thread action = "join" name = arrayToList( toggleThreadNames ) timeout = 10000;
 
 				for ( var i = 1; i <= arrayLen( renderThreadNames ); i++ ) {
 					var thisRenderThreadName = renderThreadNames[ i ];
 					var expected             = "N" & i & ":1;N" & i & ":2;N" & i & ":3;";
 
-					expect( cfthread[ thisRenderThreadName ].hadError ).toBeFalse();
+					expect( structKeyExists( cfthread, thisRenderThreadName ) ).toBeTrue();
+					expect( structKeyExists( cfthread[ thisRenderThreadName ], "completed" ) && cfthread[ thisRenderThreadName ].completed )
+						.toBeTrue( "Thread did not complete: #thisRenderThreadName#" );
+					expect( cfthread[ thisRenderThreadName ].hadError )
+						.toBeFalse( structKeyExists( cfthread[ thisRenderThreadName ], "errorMessage" ) ? cfthread[ thisRenderThreadName ].errorMessage : "" );
 					expect( cfthread[ thisRenderThreadName ].result ).toBe( expected );
 				}
 
 				for ( var i = 1; i <= arrayLen( toggleThreadNames ); i++ ) {
 					var thisToggleThreadName = toggleThreadNames[ i ];
 
-					expect( cfthread[ thisToggleThreadName ].hadError ).toBeFalse();
+					expect( structKeyExists( cfthread, thisToggleThreadName ) ).toBeTrue();
+					expect( structKeyExists( cfthread[ thisToggleThreadName ], "completed" ) && cfthread[ thisToggleThreadName ].completed )
+						.toBeTrue( "Thread did not complete: #thisToggleThreadName#" );
+					expect( cfthread[ thisToggleThreadName ].hadError )
+						.toBeFalse( structKeyExists( cfthread[ thisToggleThreadName ], "errorMessage" ) ? cfthread[ thisToggleThreadName ].errorMessage : "" );
 					expect( cfthread[ thisToggleThreadName ].result ).toBe( "ok" );
 				}
 
