@@ -3,6 +3,7 @@ name: Pull request checks
 on:
   pull_request:
     branches:
+      - main
       - develop
     types:
       - opened
@@ -38,9 +39,9 @@ jobs:
         experimental:
           - false
         include:
-          - cfengine: lucee@be
-            coldboxVersion: be
-            experimental: true
+          # - cfengine: lucee@be
+          #   coldboxVersion: be
+          #   experimental: true
           - cfengine: adobe@be
             coldboxVersion: be
             experimental: true

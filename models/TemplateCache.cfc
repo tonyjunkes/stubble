@@ -51,14 +51,10 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 		var cachedAst = [];
 		var hasCached = false;
 		var cacheEnabled = false;
-		var cacheEntryCount = 0;
-		var cacheMaxEntries = 0;
 
 		lock name=variables._cacheLockName type="readonly" timeout="5" {
 			cacheEnabled = variables._cacheEnabled;
-			cacheMaxEntries = variables._cacheMaxEntries;
 			if (cacheEnabled) {
-				cacheEntryCount = structCount(variables._templateCache);
 				hasCached = structKeyExists(variables._templateCache, cacheKey);
 				if (hasCached) {
 					cachedAst = variables._templateCache[cacheKey];
@@ -71,11 +67,9 @@ component displayname="TemplateCache" implements="ITemplateCache" {
 		}
 
 		if (hasCached) {
-			if (cacheEntryCount >= cacheMaxEntries) {
-				lock name=variables._cacheLockName type="exclusive" timeout="5" {
-					if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
-						_touchKey(cacheKey);
-					}
+			lock name=variables._cacheLockName type="exclusive" timeout="5" {
+				if (variables._cacheEnabled && structKeyExists(variables._templateCache, cacheKey)) {
+					_touchKey(cacheKey);
 				}
 			}
 			return cachedAst;

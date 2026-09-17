@@ -159,6 +159,8 @@ component extends="testbox.system.BaseSpec" {
 
 						thread action = "join" name = threadName timeout = 10000;
 
+						expect( structKeyExists( cfthread, threadName ) )
+							.toBeTrue( "Thread was not registered: #threadName#" );
 						expect( structKeyExists( cfthread[ threadName ], "completed" ) && cfthread[ threadName ].completed )
 							.toBeTrue( "Thread did not complete: #threadName#" );
 						expect( cfthread[ threadName ].hadError ).toBeFalse();
@@ -258,6 +260,28 @@ component extends="testbox.system.BaseSpec" {
 					// Second should have been evicted and needs re-parsing
 					variables.cache.getOrSet( "second", "{{", "}}", parseFn );
 					expect( callCount ).toBe( 4 );
+				} );
+
+				it( "tracks recent access before reaching capacity", function(){
+					variables.cache.configure( enabled = true, maxEntries = 3 );
+					var callCount = 0;
+					var parseFn = function( t, o, c ){
+						callCount++;
+						return [ t ];
+					};
+
+					variables.cache.getOrSet( "first", "{{", "}}", parseFn );
+					variables.cache.getOrSet( "second", "{{", "}}", parseFn );
+					variables.cache.getOrSet( "first", "{{", "}}", parseFn );
+					variables.cache.getOrSet( "third", "{{", "}}", parseFn );
+					variables.cache.getOrSet( "fourth", "{{", "}}", parseFn );
+
+					// The pre-capacity access made first newer than second.
+					variables.cache.getOrSet( "first", "{{", "}}", parseFn );
+					expect( callCount ).toBe( 4 );
+
+					variables.cache.getOrSet( "second", "{{", "}}", parseFn );
+					expect( callCount ).toBe( 5 );
 				} );
 
 				it( "evicts down to maxEntries when reconfigured smaller", function(){
