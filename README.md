@@ -37,10 +37,10 @@ The initial implementation of Stubble has put a good amount of focus on the exis
 
 ## Installation
 
-> This library is not yet published to ForgeBox, but you can still install from the GitHub repository.
+Install the latest stable release from ForgeBox:
 
 ```bash
-box install git://github.com/tonyjunkes/stubble.git
+box install stubble
 ```
 
 ## Usage
