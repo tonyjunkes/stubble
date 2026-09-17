@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: ${{ matrix.cfengine }} / ColdBox ${{ matrix.coldboxVersion }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        cfengine:
+          - lucee@6
+          - lucee@7
+          - adobe@2023
+          - adobe@2025
+          - boxlang-cfml@1
+          - boxlang@1
+        coldboxVersion:
+          - ^8.0.5
+        experimental:
+          - false
+        include:
+          # - cfengine: lucee@be
+          #   coldboxVersion: be
+          #   experimental: true
+          - cfengine: adobe@be
+            coldboxVersion: be
+            experimental: true
+          - cfengine: boxlang@be
+            coldboxVersion: be
+            experimental: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up CommandBox
+        uses: Ortus-Solutions/setup-commandbox@v2.0.1
+
+      - name: Install CommandBox BoxLang support
+        run: box install commandbox-boxlang
+
+      - name: Install dependencies
+        run: |
+          box install
+          cd test-harness
+          box package set dependencies.coldbox=${{ matrix.coldboxVersion }}
+          box install
+
+      - name: Start ${{ matrix.cfengine }} server
+        run: |
+          box server start serverConfigFile="server-${{ matrix.cfengine }}.json" --noSaveSettings
+          curl --fail --retry 12 --retry-delay 5 --retry-connrefused http://127.0.0.1:8520/
+
+      - name: Run TestBox tests
+        run: box testbox run
+
+  publish:
+    name: Tag and publish
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Read and validate release version
+        id: release
+        shell: bash
+        run: |
+          VERSION="$(jq -er '.version | select(type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"))' box.json)"
+          MODULE_VERSION="$(sed -n 's/.*this\.version *= *"\([^"]*\)".*/\1/p' ModuleConfig.cfc)"
+
+          if [[ "$VERSION" != "$MODULE_VERSION" ]]; then
+            echo "box.json version ($VERSION) does not match ModuleConfig.cfc ($MODULE_VERSION)." >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Require release credentials
+        env:
+          FORGEBOX_TOKEN: ${{ secrets.FORGEBOX_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$FORGEBOX_TOKEN" ]]; then
+            echo "Add a FORGEBOX_TOKEN repository secret before releasing." >&2
+            exit 1
+          fi
+
+      - name: Set up CommandBox
+        uses: Ortus-Solutions/setup-commandbox@v2.0.1
+        with:
+          forgeboxAPIKey: ${{ secrets.FORGEBOX_TOKEN }}
+
+      - name: Tag release commit
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+            if [[ "$TAG_COMMIT" != "$GITHUB_SHA" ]]; then
+              echo "$TAG already points to $TAG_COMMIT; refusing to move it to $GITHUB_SHA." >&2
+              exit 1
+            fi
+            echo "$TAG already points to this commit; continuing the release."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag --annotate "$TAG" --message "Release $TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - name: Publish to ForgeBox
+        run: box forgebox publish --force
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub release $TAG already exists."
+          else
+            gh release create "$TAG" --verify-tag --title "Stubble $VERSION" --generate-notes
+          fi

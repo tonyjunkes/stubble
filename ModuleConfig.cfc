@@ -3,7 +3,7 @@ component {
     this.author = "Tony Junkes";
     this.webURL = "https://github.com/tonyjunkes/stubble";
     this.description = "A Mustache-inspired template engine for CFML";
-    this.version = "0.1.0";
+    this.version = "1.0.0";
     this.cfmapping = "stubble";
     this.autoMapModels = true;
     this.applicationHelper = ["helpers/StubbleHelper.cfm"];
